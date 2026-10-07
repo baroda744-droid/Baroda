@@ -1,0 +1,6 @@
+{
+  "name": "Aarya Bank - Mobile Banking App",
+  "description": "Aarya Bank (Aarya World) mobile banking app with BoB World experience - onboarding, permissions, unified dashboard, fund transfers, and FD/RD analytics.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
