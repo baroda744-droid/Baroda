@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Wallet, CheckCircle2, ShieldCheck, Copy, ArrowRight, FileText } from 'lucide-react';
+import { X, Wallet, CheckCircle2, ShieldCheck, Copy, ArrowRight, FileText, AlertOctagon, AlertTriangle } from 'lucide-react';
 import { BankAccount } from '../../types';
 
 interface AccountsListModalProps {

@@ -16,9 +16,10 @@ import {
   ShieldCheck,
   TrendingUp,
   CreditCard,
-  ShoppingBag,
   Coins,
   Compass,
+  AlertOctagon,
+  AlertTriangle,
 } from 'lucide-react';
 import { BankAccount, Transaction, MainTab } from '../types';
 import { RECENT_PAYEES } from '../data/mockData';
@@ -98,17 +99,17 @@ export const Screen3Dashboard: React.FC<Screen3Props> = ({
               </button>
             </div>
             <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
-              Primary A/C
+              Active
             </span>
           </div>
 
           {/* Middle: Aarya Bank - XXXX 1234 & Balance: ₹2,13,560.50 (big navy bold) */}
           <div className="my-3">
             <span className="text-xs font-bold text-slate-500 block">
-              Aarya Bank - XXXX 1234
+              Aarya Bank - 1234
             </span>
             <div className="text-2xl sm:text-[30px] font-black tracking-tight text-[#0A2E65] font-mono mt-0.5">
-              {showBalance ? `Balance: ₹${formattedBalance}` : 'Balance: ₹••••••••'}
+              {showBalance ? `₹ ${formattedBalance}` : '₹ ••••••••'}
             </div>
           </div>
 

@@ -32,12 +32,16 @@ export interface MPassbookTransaction {
   type: 'debit' | 'credit';
   balanceAfter: number;
   charges?: number;
+  tag?: string; // e.g. "UPI"
   utrNo: string;
   txnId: string;
   ifsc: string;
   refNo: string;
   remarks: string;
   mode: 'UPI' | 'NEFT' | 'IMPS' | 'ATM' | 'POS' | 'INT';
+  status?: 'success' | 'failed';
+  reason?: string;
+  toAccount?: string;
 }
 
 export interface FixedDepositItem {

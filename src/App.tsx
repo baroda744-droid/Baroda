@@ -133,44 +133,20 @@ export default function App() {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
-  // Fund Transfer handler
+  // Fund Transfer handler - Always blocked due to Account Freezed
   const handlePaymentSuccess = (newTx: Transaction, newBalance: number) => {
-    setTransactions((prev) => [newTx, ...prev]);
-    setAccounts((prev) =>
-      prev.map((acc) =>
-        acc.isPrimary ? { ...acc, balance: newBalance } : acc
-      )
-    );
     addToast(
-      `₹${newTx.amount.toLocaleString('en-IN')} debited. Ref: ${newTx.refNumber}`,
-      'success'
+      'Transaction Failed: Account Freezed - Security Hold (Code: ACCT_FRZ_001)',
+      'warning'
     );
   };
 
-  // UPI QR Scan Pay Handler
+  // UPI QR Scan Pay Handler - Always blocked due to Account Freezed
   const handleScanPaySuccess = (merchant: string, amount: number) => {
-    const primaryAcc = accounts.find((a) => a.isPrimary) || accounts[0];
-    if (amount > primaryAcc.balance) {
-      addToast('Insufficient funds for QR scan payment.', 'warning');
-      return;
-    }
-
-    const ref = 'UPI' + Math.floor(1000000000 + Math.random() * 9000000000);
-    const newTx: Transaction = {
-      id: 'tx-qr-' + Date.now(),
-      title: `UPI Payment to ${merchant}`,
-      recipient: merchant,
-      amount: amount,
-      type: 'debit',
-      category: 'shopping',
-      date: 'Today',
-      time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-      refNumber: ref,
-      status: 'Completed',
-    };
-
-    const newBal = primaryAcc.balance - amount;
-    handlePaymentSuccess(newTx, newBal);
+    addToast(
+      'Transaction Failed: Account Freezed - Security Hold (Code: ACCT_FRZ_001)',
+      'warning'
+    );
   };
 
   // Navigation controller with MPIN trigger
@@ -300,13 +276,15 @@ export default function App() {
 
         {/* M-PASSBOOK SCREEN */}
         {currentScreen === 'mpassbook' && (
-          <div className="px-4">
+          <div className="w-full">
             <ScreenMPassbook
               onBack={() => {
                 setCurrentScreen('dashboard');
                 setActiveNavTab('home');
               }}
               onToast={addToast}
+              balance={primaryAccount.balance}
+              accountNumber={primaryAccount.maskedNumber}
             />
           </div>
         )}

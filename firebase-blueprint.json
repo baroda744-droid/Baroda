@@ -1,0 +1,28 @@
+{
+  "entities": {
+    "Transaction": {
+      "title": "Transaction",
+      "description": "Financial and transfer transactions including completed and failed security-hold records",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Unique user or account ID" },
+        "type": { "type": "string", "description": "Type of transaction e.g. transfer, upi, qr" },
+        "amount": { "type": "number", "description": "Transaction amount in INR" },
+        "toAccount": { "type": "string", "description": "Beneficiary account number or recipient" },
+        "status": { "type": "string", "description": "Status of transaction (failed or completed)" },
+        "reason": { "type": "string", "description": "Failure reason or hold detail" },
+        "date": { "type": "string", "description": "ISO date string or formatted date" },
+        "timestamp": { "type": "string", "description": "Server timestamp" },
+        "narration": { "type": "string", "description": "Bank statement narration" },
+        "utrNo": { "type": "string", "description": "Unique Transaction Reference number" }
+      },
+      "required": ["userId", "amount", "status"]
+    }
+  },
+  "firestore": {
+    "/transactions/{transactionId}": {
+      "schema": "Transaction",
+      "description": "Collection of all account transactions including failed transfer records"
+    }
+  }
+}
