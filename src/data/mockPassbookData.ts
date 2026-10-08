@@ -630,8 +630,8 @@ export const M_PASSBOOK_TRANSACTIONS: MPassbookTransaction[] = [
     "refNo": "USD 66,860,465,116.28",
     "remarks": "DEUTCHE BANK AG - SWIFT INWARD / FREEZE",
     "mode": "SWIFT"
-  }
-];
+  },
+  {
 "id": "mp-jan-9",
     "date": "08/01/25",
     "narration": "DEUTCHE BANK AG//DUE TO ACCOUNT HAS BEEN FREEZE",
