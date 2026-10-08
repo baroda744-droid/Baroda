@@ -632,3 +632,21 @@ export const M_PASSBOOK_TRANSACTIONS: MPassbookTransaction[] = [
     "mode": "SWIFT"
   }
 ];
+"id": "mp-jan-9",
+    "date": "08/01/25",
+    "narration": "DEUTCHE BANK AG//DUE TO ACCOUNT HAS BEEN FREEZE",
+    "chqNo": "SWIFT/00487771418/3654",
+    "withdrawals": "",
+    "deposits": "57500,00,00,000.00",
+    "balanceStr": "57500,00,01,402.06Cr",
+    "amount": 575000000000.0,
+    "type": "credit",
+    "balanceAfter": 575000001402.06,
+    "utrNo": "SWIFT/00487771418/3654",
+    "txnId": "TXN08012509",
+    "ifsc": "BARB0NAGARI",
+    "refNo": "USD 66,860,465,116.28",
+    "remarks": "DEUTCHE BANK AG - SWIFT INWARD / FREEZE",
+    "mode": "SWIFT"
+  }
+];
