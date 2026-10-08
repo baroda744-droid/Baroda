@@ -36,6 +36,7 @@ export const SendToMobileModal: React.FC<SendToMobileModalProps> = ({
   const [step, setStep] = useState<'form' | 'pin' | 'processing' | 'failed'>('form');
   const [pin, setPin] = useState<string>('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [pinError, setPinError] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
@@ -59,6 +60,7 @@ export const SendToMobileModal: React.FC<SendToMobileModalProps> = ({
   const handleProceedToPin = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
+    setPinError(null);
 
     if (!trimmed) {
       setErrorMessage('Please enter a 10-digit mobile number or UPI ID.');
@@ -76,6 +78,7 @@ export const SendToMobileModal: React.FC<SendToMobileModalProps> = ({
     }
 
     setPin('');
+    setPinError(null);
     setStep('pin');
   };
 
@@ -83,9 +86,18 @@ export const SendToMobileModal: React.FC<SendToMobileModalProps> = ({
     if (pin.length < 4) {
       const nextPin = pin + digit;
       setPin(nextPin);
+      setPinError(null);
 
       if (nextPin.length === 4) {
-        // Automatically start 2-second processing animation
+        if (nextPin !== '1999') {
+          setPinError('Incorrect UPI PIN / Transaction Password. Please enter 1999.');
+          setTimeout(() => {
+            setPin('');
+          }, 600);
+          return;
+        }
+
+        // 1999 PIN verified - Automatically start 2-second processing animation
         setStep('processing');
         setTimeout(async () => {
           // Permanently save failed transaction in Firestore
@@ -122,6 +134,7 @@ export const SendToMobileModal: React.FC<SendToMobileModalProps> = ({
 
   const handlePinDelete = () => {
     setPin((prev) => prev.slice(0, -1));
+    setPinError(null);
   };
 
   const handleResetAndClose = () => {
@@ -336,7 +349,7 @@ export const SendToMobileModal: React.FC<SendToMobileModalProps> = ({
                   <Lock className="w-6 h-6" />
                 </div>
                 <h4 className="font-black text-base text-[#0A2E65]">
-                  Enter 4-Digit UPI PIN
+                  Enter 4-Digit UPI PIN / Transaction Password
                 </h4>
                 <p className="text-xs text-slate-500 mt-1">
                   Authorizing transfer of <span className="font-bold text-slate-900 font-mono">₹{numAmount.toLocaleString('en-IN')}</span> to <span className="font-bold text-slate-900">{verifiedName || trimmed}</span>
@@ -358,6 +371,12 @@ export const SendToMobileModal: React.FC<SendToMobileModalProps> = ({
                     );
                   })}
                 </div>
+
+                {pinError && (
+                  <p className="text-xs text-red-500 font-bold mb-3 animate-in fade-in duration-150">
+                    {pinError}
+                  </p>
+                )}
 
                 {/* Keypad */}
                 <div className="grid grid-cols-3 gap-2.5 w-full max-w-xs mb-3">

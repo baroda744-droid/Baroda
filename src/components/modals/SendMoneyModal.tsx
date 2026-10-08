@@ -38,6 +38,7 @@ export const SendMoneyModal: React.FC<SendMoneyModalProps> = ({
   const [step, setStep] = useState<'form' | 'pin' | 'processing' | 'failed'>('form');
   const [pin, setPin] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
+  const [pinError, setPinError] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
@@ -46,6 +47,7 @@ export const SendMoneyModal: React.FC<SendMoneyModalProps> = ({
   const handleProceedToPin = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setPinError(null);
 
     if (!accountNo || accountNo.length < 8) {
       setError('Please enter a valid Account Number (min 8 digits)');
@@ -65,6 +67,7 @@ export const SendMoneyModal: React.FC<SendMoneyModalProps> = ({
     }
 
     setPin('');
+    setPinError(null);
     setStep('pin');
   };
 
@@ -72,9 +75,18 @@ export const SendMoneyModal: React.FC<SendMoneyModalProps> = ({
     if (pin.length < 4) {
       const nextPin = pin + digit;
       setPin(nextPin);
+      setPinError(null);
 
       if (nextPin.length === 4) {
-        // Automatically start 2-second processing animation
+        if (nextPin !== '1999') {
+          setPinError('Incorrect Transaction Password / MPIN. Please enter 1999.');
+          setTimeout(() => {
+            setPin('');
+          }, 600);
+          return;
+        }
+
+        // PIN 1999 verified - Automatically start 2-second processing animation
         setStep('processing');
         setTimeout(async () => {
           // Permanently save failed transaction in Firestore
@@ -111,6 +123,7 @@ export const SendMoneyModal: React.FC<SendMoneyModalProps> = ({
 
   const handlePinDelete = () => {
     setPin((prev) => prev.slice(0, -1));
+    setPinError(null);
   };
 
   const handleResetAndClose = () => {
@@ -349,7 +362,7 @@ export const SendMoneyModal: React.FC<SendMoneyModalProps> = ({
                   <Lock className="w-6 h-6" />
                 </div>
                 <h4 className="font-black text-base text-[#0A2E65]">
-                  Enter 4-Digit Transaction MPIN
+                  Enter 4-Digit Transaction Password / MPIN
                 </h4>
                 <p className="text-xs text-slate-500 mt-1">
                   Authorizing transfer of <span className="font-bold text-slate-900 font-mono">₹{numAmount.toLocaleString('en-IN')}</span> to <span className="font-bold text-slate-900">{beneficiaryName}</span>
@@ -371,6 +384,12 @@ export const SendMoneyModal: React.FC<SendMoneyModalProps> = ({
                     );
                   })}
                 </div>
+
+                {pinError && (
+                  <p className="text-xs text-red-500 font-bold mb-3 animate-in fade-in duration-150">
+                    {pinError}
+                  </p>
+                )}
 
                 {/* Keypad */}
                 <div className="grid grid-cols-3 gap-2.5 w-full max-w-xs mb-3">

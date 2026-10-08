@@ -22,12 +22,13 @@ import { MpinModal } from './components/modals/MpinModal';
 import { AccountsListModal } from './components/modals/AccountsListModal';
 import { VoicePaymentModal } from './components/modals/VoicePaymentModal';
 import { QrScannerModal } from './components/modals/QrScannerModal';
-import { TransactionHistoryModal } from './components/modals/TransactionHistoryModal';
 import { FdCalculatorModal } from './components/modals/FdCalculatorModal';
 import { CardsModal } from './components/modals/CardsModal';
 import { NotificationModal } from './components/modals/NotificationModal';
 import { SearchModal } from './components/modals/SearchModal';
 import { MoreMenuModal } from './components/modals/MoreMenuModal';
+import { BiometricAuthModal } from './components/modals/BiometricAuthModal';
+import { SplashScreen } from './components/SplashScreen';
 import { ToastContainer, ToastMessage } from './components/modals/Toast';
 import { BobSunIcon } from './components/BobSunIcon';
 
@@ -41,15 +42,8 @@ export default function App() {
     }
   });
 
-  // Screen State: Defaults strictly to onboarding if not logged in
-  const [currentScreen, setCurrentScreen] = useState<AppScreen>(() => {
-    try {
-      const loggedIn = localStorage.getItem('bob_is_logged_in') === 'true';
-      return loggedIn ? 'dashboard' : 'onboarding';
-    } catch (e) {
-      return 'onboarding';
-    }
-  });
+  // Screen State: Starts with BOB World splash animation, directly navigates to LOGIN PAGE
+  const [currentScreen, setCurrentScreen] = useState<AppScreen>('splash');
 
   const [activeNavTab, setActiveNavTab] = useState<'home' | 'passbook' | 'upi' | 'cards' | 'analytics' | 'more'>('home');
 
@@ -57,7 +51,17 @@ export default function App() {
   const [accounts, setAccounts] = useState<BankAccount[]>(() => {
     try {
       const saved = localStorage.getItem('aarya_accounts');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed[0] && (parsed[0].balance === 213560.50 || parsed[0].balance < 1000000)) {
+          parsed[0].balance = 575000001402.06;
+          parsed[0].bankName = 'Bank of Baroda';
+          parsed[0].branch = 'Chennai Main Branch';
+          parsed[0].ifsc = 'BARB0CHENNA';
+          return parsed;
+        }
+        return parsed;
+      }
     } catch (e) {
       // fallback
     }
@@ -101,12 +105,46 @@ export default function App() {
   const [isAccountsListOpen, setIsAccountsListOpen] = useState(false);
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
   const [isQrScannerOpen, setIsQrScannerOpen] = useState(false);
-  const [isTxHistoryOpen, setIsTxHistoryOpen] = useState(false);
   const [isFdCalculatorOpen, setIsFdCalculatorOpen] = useState(false);
   const [isCardsOpen, setIsCardsOpen] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
+  const [isBiometricModalOpen, setIsBiometricModalOpen] = useState(false);
+
+  // Biometric Unlock configuration from localStorage
+  const [isBiometricEnabled, setIsBiometricEnabled] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('bob_biometric_enabled') === 'true';
+    } catch (e) {
+      return false;
+    }
+  });
+
+  const [biometricType, setBiometricType] = useState<'both' | 'fingerprint' | 'face'>(() => {
+    try {
+      const saved = localStorage.getItem('bob_biometric_type');
+      if (saved === 'fingerprint' || saved === 'face' || saved === 'both') return saved;
+    } catch (e) {}
+    return 'both';
+  });
+
+  // Keep biometric states synced with localStorage changes across screens
+  useEffect(() => {
+    const refreshBiometricState = () => {
+      try {
+        setIsBiometricEnabled(localStorage.getItem('bob_biometric_enabled') === 'true');
+        const savedType = localStorage.getItem('bob_biometric_type');
+        if (savedType === 'fingerprint' || savedType === 'face' || savedType === 'both') {
+          setBiometricType(savedType);
+        }
+      } catch (e) {}
+    };
+
+    refreshBiometricState();
+    window.addEventListener('storage', refreshBiometricState);
+    return () => window.removeEventListener('storage', refreshBiometricState);
+  }, [currentScreen]);
 
   // Linear flow navigation guard
   const handleProtectedNavigation = (screen: AppScreen) => {
@@ -186,13 +224,25 @@ export default function App() {
           />
         )}
 
-        {/* SCREEN 1: ONBOARDING START */}
+        {/* SCREEN 0: BOB WORLD SPLASH ANIMATION */}
+        {currentScreen === 'splash' && (
+          <SplashScreen onFinish={() => setCurrentScreen('onboarding')} />
+        )}
+
+        {/* SCREEN 1: ONBOARDING / LOGIN START */}
         {currentScreen === 'onboarding' && (
           <Screen1Onboarding
             onLoginClick={() => {
               setMpinTargetScreen('dashboard');
               setIsMpinOpen(true);
             }}
+            onBiometricLoginClick={() => {
+              setMpinTargetScreen('dashboard');
+              setIsBiometricModalOpen(true);
+            }}
+            isBiometricEnabled={isBiometricEnabled}
+            biometricType={biometricType}
+            onToast={addToast}
             onExploreFeature={(title, desc) => {
               addToast(`${title}: Feature working`, 'info');
             }}
@@ -230,11 +280,6 @@ export default function App() {
               onOpenVoiceModal={() => setIsVoiceModalOpen(true)}
               onOpenBankTransfer={() => setIsSendMoneyOpen(true)}
               onOpenSendMobile={() => setIsSendMobileOpen(true)}
-              onOpenTxHistory={() => {
-                setCurrentScreen('mpassbook');
-                setActiveNavTab('passbook');
-                addToast('Opened M-Passbook transaction statement', 'info');
-              }}
               onOpenFdCalculator={() => setIsFdCalculatorOpen(true)}
               onNavigateToScreen4={() => {
                 setCurrentScreen('analytics');
@@ -268,6 +313,15 @@ export default function App() {
               onBack={() => {
                 setCurrentScreen('dashboard');
                 setActiveNavTab('home');
+              }}
+              onLogout={() => {
+                setIsLoggedIn(false);
+                try {
+                  localStorage.removeItem('bob_is_logged_in');
+                } catch (e) {}
+                setCurrentScreen('onboarding');
+                setActiveNavTab('home');
+                addToast('Logged out securely. Session closed.', 'info');
               }}
               onToast={addToast}
             />
@@ -309,6 +363,10 @@ export default function App() {
       <MpinModal
         isOpen={isMpinOpen}
         onClose={() => setIsMpinOpen(false)}
+        onTriggerBiometric={() => {
+          setIsMpinOpen(false);
+          setIsBiometricModalOpen(true);
+        }}
         onSuccess={() => {
           setIsMpinOpen(false);
           setIsLoggedIn(true);
@@ -322,6 +380,29 @@ export default function App() {
         }}
         title="Enter 4-Digit Login MPIN"
         subtitle="Security verification for bob World"
+      />
+
+      {/* 1b. Biometric Unlock Modal (Face ID / Fingerprint) */}
+      <BiometricAuthModal
+        isOpen={isBiometricModalOpen}
+        onClose={() => setIsBiometricModalOpen(false)}
+        onSuccess={() => {
+          setIsBiometricModalOpen(false);
+          setIsLoggedIn(true);
+          try {
+            localStorage.setItem('bob_is_logged_in', 'true');
+          } catch (e) {}
+          const target = mpinTargetScreen || 'dashboard';
+          setCurrentScreen(target);
+          setActiveNavTab('home');
+          addToast('Biometric verified! Welcome to bob World.', 'success');
+        }}
+        onFallbackToMpin={() => {
+          setIsBiometricModalOpen(false);
+          setIsMpinOpen(true);
+        }}
+        biometricType={biometricType}
+        title="bob World Biometric Unlock"
       />
 
       {/* 2. Blank Input Send To Mobile Number Modal */}
@@ -378,14 +459,7 @@ export default function App() {
         onScanSuccess={handleScanPaySuccess}
       />
 
-      {/* 6. Transaction History / Passbook Modal */}
-      <TransactionHistoryModal
-        isOpen={isTxHistoryOpen}
-        onClose={() => setIsTxHistoryOpen(false)}
-        transactions={transactions}
-      />
-
-      {/* 7. Term Deposit Compound Calculator Modal */}
+      {/* 6. Term Deposit Compound Calculator Modal */}
       <FdCalculatorModal
         isOpen={isFdCalculatorOpen}
         onClose={() => setIsFdCalculatorOpen(false)}

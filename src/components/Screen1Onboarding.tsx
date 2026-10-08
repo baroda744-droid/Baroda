@@ -1,15 +1,23 @@
 import React, { useState } from 'react';
-import { Sparkles, ArrowRight, Shield, CheckCircle2, X } from 'lucide-react';
+import { Sparkles, ArrowRight, Shield, CheckCircle2, X, Fingerprint, ScanFace } from 'lucide-react';
 import { AaryaLogo } from './AaryaLogo';
 import { BobSunIcon } from './BobSunIcon';
 
 interface Screen1Props {
   onLoginClick: () => void;
+  onBiometricLoginClick?: () => void;
+  isBiometricEnabled?: boolean;
+  biometricType?: 'fingerprint' | 'face' | 'both';
   onExploreFeature?: (title: string, desc: string) => void;
+  onToast?: (msg: string, type?: 'success' | 'info' | 'warning') => void;
 }
 
 export const Screen1Onboarding: React.FC<Screen1Props> = ({
   onLoginClick,
+  onBiometricLoginClick,
+  isBiometricEnabled = false,
+  biometricType = 'both',
+  onToast,
 }) => {
   const [selectedOnboardOption, setSelectedOnboardOption] = useState<{
     title: string;
@@ -234,14 +242,60 @@ export const Screen1Onboarding: React.FC<Screen1Props> = ({
             Access your accounts effortlessly with MPIN, Biometrics, or Internet Banking credentials.
           </p>
 
-          {/* Dark Blue Login Button */}
-          <button
-            onClick={onLoginClick}
-            className="mt-3.5 w-full py-3.5 px-4 rounded-xl bg-[#0A2E65] hover:bg-[#071f45] active:scale-[0.98] text-white font-bold text-sm tracking-wide shadow-md shadow-blue-950/20 flex items-center justify-center gap-2 transition-all cursor-pointer group"
-          >
-            <span>Login to bob World</span>
-            <ArrowRight className="w-4 h-4 text-orange-400 group-hover:translate-x-1 transition-transform" />
-          </button>
+          {/* Login Buttons: Biometric Unlock & MPIN */}
+          {isBiometricEnabled ? (
+            <div className="mt-3.5 space-y-2">
+              <button
+                onClick={onBiometricLoginClick}
+                className="w-full py-3.5 px-4 rounded-xl bg-linear-to-r from-[#FF6B00] via-[#ff5500] to-[#E64A00] hover:brightness-105 active:scale-[0.98] text-white font-extrabold text-sm tracking-wide shadow-lg shadow-orange-500/30 flex items-center justify-between transition-all cursor-pointer group ring-2 ring-orange-200/50"
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded-lg bg-white/25 flex items-center justify-center">
+                    {biometricType === 'face' ? (
+                      <ScanFace className="w-4 h-4 text-white" />
+                    ) : (
+                      <Fingerprint className="w-4 h-4 text-white animate-pulse" />
+                    )}
+                  </div>
+                  <span>
+                    {biometricType === 'face'
+                      ? 'Unlock with Face ID'
+                      : biometricType === 'fingerprint'
+                      ? 'Unlock with Fingerprint'
+                      : 'Unlock with Biometrics'}
+                  </span>
+                </div>
+                <span className="text-[10px] bg-white text-[#FF6B00] font-black px-2 py-0.5 rounded-full shadow-2xs">
+                  Instant &gt;
+                </span>
+              </button>
+
+              <button
+                onClick={onLoginClick}
+                className="w-full py-2.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-[#0A2E65] font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-98"
+              >
+                <span>Or Enter 4-Digit MPIN</span>
+                <ArrowRight className="w-3.5 h-3.5 text-[#0A2E65]" />
+              </button>
+            </div>
+          ) : (
+            <div className="mt-3.5 space-y-2">
+              {/* Dark Blue Login Button */}
+              <button
+                onClick={onLoginClick}
+                className="w-full py-3.5 px-4 rounded-xl bg-[#0A2E65] hover:bg-[#071f45] active:scale-[0.98] text-white font-bold text-sm tracking-wide shadow-md shadow-blue-950/20 flex items-center justify-center gap-2 transition-all cursor-pointer group"
+              >
+                <span>Login with MPIN</span>
+                <ArrowRight className="w-4 h-4 text-orange-400 group-hover:translate-x-1 transition-transform" />
+              </button>
+
+              <div className="text-center">
+                <span className="text-[10px] text-slate-400 font-medium">
+                  Tip: Enable Biometric Unlock in Profile Settings for 1-tap login
+                </span>
+              </div>
+            </div>
+          )}
 
           {/* Quick links below button */}
           <div className="mt-3 flex items-center justify-between text-[11px] font-semibold text-slate-500 px-1">
@@ -260,7 +314,11 @@ export const Screen1Onboarding: React.FC<Screen1Props> = ({
             </button>
             <span className="text-slate-300">•</span>
             <button
-              onClick={() => alert('Bank of Baroda 24x7 Customer Care: 1800 5700 / care@bankofbaroda.com')}
+              onClick={() => {
+                if (onToast) {
+                  onToast('Bank of Baroda 24x7 Customer Care: 1800 5700 / bobsupport@branch.com', 'info');
+                }
+              }}
               className="hover:text-[#FF6B00] transition-colors"
             >
               24x7 Help

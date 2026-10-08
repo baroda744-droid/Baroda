@@ -22,7 +22,6 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { BankAccount, Transaction, MainTab } from '../types';
-import { RECENT_PAYEES } from '../data/mockData';
 
 interface Screen3Props {
   accounts: BankAccount[];
@@ -33,7 +32,6 @@ interface Screen3Props {
   onOpenVoiceModal: () => void;
   onOpenBankTransfer: () => void;
   onOpenSendMobile?: () => void;
-  onOpenTxHistory: () => void;
   onOpenFdCalculator: () => void;
   onNavigateToScreen4: () => void;
   onQuickPayMobile: (payeeName: string) => void;
@@ -49,7 +47,6 @@ export const Screen3Dashboard: React.FC<Screen3Props> = ({
   onOpenVoiceModal,
   onOpenBankTransfer,
   onOpenSendMobile,
-  onOpenTxHistory,
   onOpenFdCalculator,
   onNavigateToScreen4,
   onQuickPayMobile,
@@ -103,24 +100,24 @@ export const Screen3Dashboard: React.FC<Screen3Props> = ({
             </span>
           </div>
 
-          {/* Middle: Aarya Bank - XXXX 1234 & Balance: ₹2,13,560.50 (big navy bold) */}
+          {/* Middle: Bank of Baroda - 1234 & Balance */}
           <div className="my-3">
             <span className="text-xs font-bold text-slate-500 block">
-              Aarya Bank - 1234
+              Bank of Baroda - 1234
             </span>
-            <div className="text-2xl sm:text-[30px] font-black tracking-tight text-[#0A2E65] font-mono mt-0.5">
+            <div className="text-xl sm:text-[26px] font-black tracking-tight text-[#0A2E65] font-mono mt-0.5">
               {showBalance ? `₹ ${formattedBalance}` : '₹ ••••••••'}
             </div>
           </div>
 
-          {/* Bottom: Account No: XXXX XXXX 1234 | IFSC: BARB0AARYA01 */}
+          {/* Bottom: Account No: XXXX XXXX 1234 | IFSC: BARB0CHENNA */}
           <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] sm:text-xs text-slate-600 flex-wrap gap-1">
             <span className="font-mono font-bold text-slate-800">
               Account No: XXXX XXXX 1234
             </span>
             <span className="text-slate-300 font-light hidden sm:inline">|</span>
             <span className="font-mono font-bold text-[#FF6B00]">
-              IFSC: BARB0AARYA01
+              IFSC: BARB0CHENNA
             </span>
           </div>
           <div className="pt-1 flex items-center justify-between text-[10px] text-slate-400 font-medium">
@@ -189,23 +186,23 @@ export const Screen3Dashboard: React.FC<Screen3Props> = ({
         {/* TAB 1: SAVE (Default Primary Banking Experience) */}
         {activeTab === 'save' && (
           <div className="space-y-4 animate-in fade-in duration-150">
-            {/* SECTION "SEND MONEY - VIEW MORE >" */}
+            {/* SECTION "SEND MONEY" */}
             <div className="bg-white rounded-3xl p-4 shadow-sm border border-slate-200/80">
               <div className="flex items-center justify-between mb-3 px-1">
                 <h3 className="text-xs sm:text-sm font-extrabold text-[#0A2E65] uppercase tracking-wider">
                   Send money
                 </h3>
                 <button
-                  onClick={onOpenTxHistory}
+                  onClick={onOpenBankTransfer}
                   className="text-xs font-bold text-[#FF6B00] hover:underline flex items-center gap-0.5"
                 >
-                  <span>View More</span>
+                  <span>Transfer</span>
                   <ChevronRight className="w-3.5 h-3.5" />
                 </button>
               </div>
 
-              {/* Grid 4 icons: To Mobile Number, To Bank Account, To Self Account, Transaction History - ALL CLICKABLE */}
-              <div className="grid grid-cols-4 gap-2 text-center">
+              {/* Grid 3 icons: To Mobile Number, To Bank Account, To Self Account */}
+              <div className="grid grid-cols-3 gap-2 text-center">
                 {/* 1. To Mobile Number */}
                 <button
                   onClick={onOpenSendMobile || (() => onQuickPayMobile(''))}
@@ -247,42 +244,6 @@ export const Screen3Dashboard: React.FC<Screen3Props> = ({
                     To Self Account
                   </span>
                 </button>
-
-                {/* 4. Transaction History */}
-                <button
-                  onClick={onOpenTxHistory}
-                  className="group flex flex-col items-center p-2 rounded-2xl hover:bg-orange-50/60 active:scale-95 transition-all cursor-pointer"
-                >
-                  <div className="w-12 h-12 rounded-2xl bg-orange-100 text-[#FF6B00] flex items-center justify-center shadow-xs group-hover:bg-[#FF6B00] group-hover:text-white transition-all">
-                    <ReceiptText className="w-6 h-6" />
-                  </div>
-                  <span className="text-[11px] font-bold text-slate-700 leading-tight mt-2 group-hover:text-[#FF6B00]">
-                    Transaction History
-                  </span>
-                </button>
-              </div>
-
-              {/* Quick Payee shortcuts row */}
-              <div className="mt-3 pt-3 border-t border-slate-100">
-                <p className="text-[10px] font-bold uppercase text-slate-400 tracking-wider mb-2">
-                  Recent Payees
-                </p>
-                <div className="flex items-center gap-3 overflow-x-auto no-scrollbar pb-1">
-                  {RECENT_PAYEES.map((payee, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => onQuickPayMobile(payee.name)}
-                      className="flex flex-col items-center shrink-0 group cursor-pointer"
-                    >
-                      <div className="w-10 h-10 rounded-full bg-slate-100 group-hover:bg-[#FF6B00] group-hover:text-white text-slate-700 font-black text-xs flex items-center justify-center transition-all border border-slate-200">
-                        {payee.avatar}
-                      </div>
-                      <span className="text-[10px] font-medium text-slate-600 mt-1 max-w-[60px] truncate">
-                        {payee.name.split(' ')[0]}
-                      </span>
-                    </button>
-                  ))}
-                </div>
               </div>
             </div>
 

@@ -1,27 +1,24 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   ChevronLeft,
-  Calendar,
-  ChevronDown,
   X,
   FileText,
   Share2,
   Download,
   Copy,
   Check,
-  CheckCircle2,
   Search,
   Eye,
   EyeOff,
-  Filter,
-  AlertOctagon,
-  AlertTriangle,
+  Table as TableIcon,
+  Layers,
+  ArrowUpRight,
+  ArrowDownLeft,
+  ShieldAlert,
 } from 'lucide-react';
 import { MPassbookTransaction } from '../types';
 import { M_PASSBOOK_TRANSACTIONS } from '../data/mockPassbookData';
 import { BobSunIcon } from './BobSunIcon';
-import { db, getLocalFailedTransactions } from '../firebase';
-import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 
 interface ScreenMPassbookProps {
   onBack: () => void;
@@ -33,12 +30,11 @@ interface ScreenMPassbookProps {
 export const ScreenMPassbook: React.FC<ScreenMPassbookProps> = ({
   onBack,
   onToast,
-  balance = 213560.50,
-  accountNumber = 'XXXX XXXX 1234',
+  balance = 575000001402.06,
+  accountNumber = '4091 8820 1234',
 }) => {
   const [filter, setFilter] = useState<'all' | 'debit' | 'credit'>('all');
-  const [selectedMonth, setSelectedMonth] = useState('Oct 2026');
-  const [isMonthPickerOpen, setIsMonthPickerOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
   const [showBalance, setShowBalance] = useState(true);
 
   // Search feature in Header
@@ -51,101 +47,33 @@ export const ScreenMPassbook: React.FC<ScreenMPassbookProps> = ({
 
   // Download PDF Statement Modal
   const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
-  const [statementPeriod, setStatementPeriod] = useState<'1month' | '3months' | 'fy26'>('1month');
   const [statementFormat, setStatementFormat] = useState<'pdf' | 'excel'>('pdf');
   const [isDownloading, setIsDownloading] = useState(false);
 
-  // Dynamic failed transactions loaded permanently from Firestore & localStorage
-  const [firestoreTransactions, setFirestoreTransactions] = useState<MPassbookTransaction[]>(() => {
-    const local = getLocalFailedTransactions();
-    return local.map((doc: any) => ({
-      id: doc.id || 'fail-' + Math.random(),
-      date: doc.date || 'Today',
-      narration: doc.narration || `TRANSFER/FAILED-FRZ to ${doc.toAccount || 'A/C'}`,
-      amount: doc.amount || 0,
-      type: 'debit' as const,
-      balanceAfter: balance,
-      utrNo: doc.utrNo || '428' + Math.floor(100000000 + Math.random() * 900000000),
-      txnId: 'TXN' + Math.floor(1000000000 + Math.random() * 9000000000),
-      ifsc: 'BARB0CHENNA',
-      refNo: 'FRZ/' + (doc.toAccount || 'ACCT'),
-      remarks: doc.reason || 'Account Freezed - Suspicious Activity',
-      mode: (doc.mode || 'UPI') as any,
-      status: 'failed' as const,
-      reason: doc.reason || 'Account Freezed - Suspicious Activity',
-      toAccount: doc.toAccount,
-    }));
-  });
+  // All passbook transactions (ordered from newest to oldest for convenience or standard passbook chronological order)
+  const allTransactions = M_PASSBOOK_TRANSACTIONS;
 
-  useEffect(() => {
-    try {
-      const q = query(collection(db, 'transactions'), orderBy('timestamp', 'desc'));
-      const unsubscribe = onSnapshot(q, (snapshot) => {
-        const items: MPassbookTransaction[] = [];
-        snapshot.forEach((d) => {
-          const data = d.data();
-          let formattedDate = 'Today';
-          if (data.date) {
-            try {
-              const dt = data.date.toDate ? data.date.toDate() : new Date(data.date);
-              formattedDate = dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-            } catch (e) {}
-          }
-          items.push({
-            id: d.id,
-            date: formattedDate,
-            narration: data.narration || `TRANSFER/FAILED-FRZ to ${data.toAccount || 'A/C'}`,
-            amount: data.amount || 0,
-            type: 'debit',
-            balanceAfter: balance,
-            utrNo: data.utrNo || '428' + Math.floor(100000000 + Math.random() * 900000000),
-            txnId: 'TXN' + Math.floor(1000000000 + Math.random() * 9000000000),
-            ifsc: 'BARB0CHENNA',
-            refNo: 'FRZ/' + (data.toAccount || 'ACCT'),
-            remarks: data.reason || 'Account Freezed - Suspicious Activity',
-            mode: (data.mode || 'UPI') as any,
-            status: (data.status || 'failed') as any,
-            reason: data.reason || 'Account Freezed - Suspicious Activity',
-            toAccount: data.toAccount,
-          });
-        });
-        if (items.length > 0) {
-          setFirestoreTransactions(items);
-        }
-      }, (err) => {
-        console.warn('Firestore onSnapshot listener error:', err);
-      });
-      return () => unsubscribe();
-    } catch (e) {
-      console.warn('Firestore subscription init error:', e);
-    }
-  }, [balance]);
-
-  // Combined transactions list: shows ALL transactions including failed ones
-  const allTransactions = [...firestoreTransactions, ...M_PASSBOOK_TRANSACTIONS];
-
-  // Filter transactions - shows ALL transactions including failed ones (both success and failed)
+  // Filter transactions
   const filteredTransactions = allTransactions.filter((txn) => {
-    // Filter by type
     if (filter === 'debit' && txn.type !== 'debit') return false;
     if (filter === 'credit' && txn.type !== 'credit') return false;
 
-    // Filter by month
-    if (selectedMonth === 'Oct 2026') {
-      if (!txn.date.includes('Oct 2026') && txn.date !== 'Today') return false;
-    } else if (selectedMonth === 'Sep 2026') {
-      if (!txn.date.includes('Sep 2026')) return false;
-    }
-
-    // Filter by search query
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       const matchesNarration = txn.narration.toLowerCase().includes(q);
-      const matchesUtr = txn.utrNo.toLowerCase().includes(q);
-      const matchesRef = txn.refNo.toLowerCase().includes(q);
-      const matchesAmount = txn.amount.toString().includes(q);
-      const matchesReason = txn.reason?.toLowerCase().includes(q);
-      if (!matchesNarration && !matchesUtr && !matchesRef && !matchesAmount && !matchesReason) {
+      const matchesChq = (txn.chqNo || '').toLowerCase().includes(q);
+      const matchesDate = txn.date.toLowerCase().includes(q);
+      const matchesWithdrawal = (txn.withdrawals || '').toLowerCase().includes(q);
+      const matchesDeposit = (txn.deposits || '').toLowerCase().includes(q);
+      const matchesBalance = (txn.balanceStr || '').toLowerCase().includes(q);
+      if (
+        !matchesNarration &&
+        !matchesChq &&
+        !matchesDate &&
+        !matchesWithdrawal &&
+        !matchesDeposit &&
+        !matchesBalance
+      ) {
         return false;
       }
     }
@@ -171,24 +99,18 @@ export const ScreenMPassbook: React.FC<ScreenMPassbookProps> = ({
       setIsDownloadModalOpen(false);
       const ext = statementFormat === 'pdf' ? 'pdf' : 'xlsx';
       onToast(
-        `Statement downloaded successfully: BOB_Statement_${selectedMonth.replace(' ', '_')}.${ext}`,
+        `Passbook statement downloaded: BOB_Passbook_Statement.${ext}`,
         'success'
       );
     }, 1200);
   };
 
-  const formattedBalance = balance.toLocaleString('en-IN', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-
   return (
-    <div className="relative pb-24 bg-white min-h-screen text-slate-800 animate-in fade-in duration-200 font-sans">
-      {/* 1. TOP HEADER: M-Passbook | Savings - XXXX1234 | Search icon + Download */}
+    <div className="relative pb-24 bg-slate-50 min-h-screen text-slate-800 animate-in fade-in duration-200 font-sans">
+      {/* 1. TOP HEADER */}
       <div className="bg-[#0A2E65] text-white pt-3 pb-3.5 px-4 sticky top-0 z-30 shadow-md">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            {/* Back Chevron */}
             <button
               onClick={onBack}
               className="p-1 -ml-1 text-white hover:text-orange-300 transition-colors cursor-pointer"
@@ -197,21 +119,18 @@ export const ScreenMPassbook: React.FC<ScreenMPassbookProps> = ({
             >
               <ChevronLeft className="w-6 h-6" />
             </button>
-
-            {/* Title & Subtitle */}
             <div>
               <h1 className="text-base sm:text-lg font-extrabold tracking-tight leading-none text-white font-sans">
-                M-Passbook
+                mPassbook Statement
               </h1>
               <p className="text-[11px] text-slate-300 font-mono mt-0.5">
-                Savings - {accountNumber.replace(/.*(\d{4})$/, '$1')}
+                Savings Account - {accountNumber.slice(-4)}
               </p>
             </div>
           </div>
 
-          {/* Right Action Icons: Search & Download PDF Statement */}
-          <div className="flex items-center gap-1.5">
-            {/* Search Icon */}
+          {/* Right Action Icons: Search & Download Statement */}
+          <div className="flex items-center gap-2">
             <button
               onClick={() => {
                 setIsSearchOpen(!isSearchOpen);
@@ -221,24 +140,22 @@ export const ScreenMPassbook: React.FC<ScreenMPassbookProps> = ({
                 isSearchOpen ? 'bg-white/20 text-white' : 'text-white/90 hover:bg-white/10'
               }`}
               title="Search Transactions"
-              aria-label="Search Transactions"
             >
-              <Search className="w-5 h-5" />
+              <Search className="w-4 h-4" />
             </button>
 
-            {/* Download PDF Statement Button */}
             <button
               onClick={() => setIsDownloadModalOpen(true)}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-[#FF6B00] hover:bg-[#e65c00] text-white text-[11px] font-bold shadow-xs transition-all cursor-pointer"
-              title="Download PDF Statement"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#FF6B00] hover:bg-[#e65c00] text-white text-[11px] font-bold shadow-xs transition-all cursor-pointer"
+              title="Download Statement"
             >
               <Download className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Statement</span>
+              <span>Statement</span>
             </button>
           </div>
         </div>
 
-        {/* Inline Search Bar when search is active */}
+        {/* Inline Search Bar */}
         {isSearchOpen && (
           <div className="mt-3 relative animate-in fade-in slide-in-from-top-1 duration-150">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
@@ -246,8 +163,8 @@ export const ScreenMPassbook: React.FC<ScreenMPassbookProps> = ({
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search narration, UTR or amount..."
-              className="w-full pl-9 pr-8 py-2 rounded-xl bg-white text-slate-800 text-xs font-medium placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#FF6B00]"
+              placeholder="Search date, particulars, chq no, or amount..."
+              className="w-full pl-9 pr-8 py-2 rounded-xl bg-white text-slate-800 text-xs font-medium placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-[#FF6B00]"
               autoFocus
             />
             {searchQuery && (
@@ -262,19 +179,20 @@ export const ScreenMPassbook: React.FC<ScreenMPassbookProps> = ({
         )}
       </div>
 
-      {/* 2. TOP BALANCE CARD (Navy Gradient): Available Balance | ₹ 2,13,560.50 | Eye Icon */}
+      {/* 2. TOP BALANCE & PASSBOOK INFO CARD */}
       <div className="px-4 pt-3.5 pb-2">
         <div className="bg-linear-to-r from-[#0A2E65] via-[#0E3A7E] to-[#15468D] rounded-2xl p-4 text-white shadow-lg shadow-blue-950/20 border border-blue-400/20 relative overflow-hidden">
-          {/* Subtle BoB Sun Watermark */}
           <div className="absolute -right-3 -bottom-4 opacity-15 pointer-events-none">
             <BobSunIcon size={95} color="#FF6B00" />
           </div>
 
-          {/* Top line: Available Balance & Eye toggle */}
           <div className="flex items-center justify-between mb-1 relative z-10">
-            <span className="text-xs font-medium text-slate-200">
-              Available Balance
-            </span>
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-200">
+              <span>Account Balance (As per Passbook)</span>
+              <span className="text-[10px] bg-orange-500 text-white px-1.5 py-0.2 rounded-full font-bold">
+                Cr
+              </span>
+            </div>
             <button
               onClick={() => {
                 setShowBalance(!showBalance);
@@ -282,7 +200,6 @@ export const ScreenMPassbook: React.FC<ScreenMPassbookProps> = ({
               }}
               className="p-1 rounded-full text-slate-300 hover:text-white transition-colors cursor-pointer"
               title={showBalance ? 'Hide balance' : 'Show balance'}
-              aria-label="Toggle balance visibility"
             >
               {showBalance ? (
                 <Eye className="w-4 h-4 text-orange-400" />
@@ -292,189 +209,232 @@ export const ScreenMPassbook: React.FC<ScreenMPassbookProps> = ({
             </button>
           </div>
 
-          {/* Big bold balance: ₹ 2,13,560.50 */}
-          <div className="text-2xl sm:text-[28px] font-black tracking-tight text-white font-mono my-1 relative z-10">
-            {showBalance ? `₹ ${formattedBalance}` : '₹ ••••••••'}
+          {/* Exact passbook balance: 57500,00,01,402.06Cr */}
+          <div className="text-xl sm:text-2xl font-black tracking-tight text-white font-mono my-1 relative z-10 flex items-baseline gap-1">
+            <span>₹</span>
+            <span>{showBalance ? '57500,00,01,402.06' : '••••••••••••••••'}</span>
+            <span className="text-xs text-orange-300 font-bold">Cr</span>
           </div>
 
-          {/* Bottom line: Account No and CBS Sync */}
           <div className="pt-2 border-t border-white/10 flex items-center justify-between text-[11px] text-slate-200 relative z-10">
             <div className="flex items-center gap-2">
-              <span className="font-mono">Account No: {accountNumber}</span>
-              <span className="text-slate-400 font-light">•</span>
-              <span className="text-[10px] text-orange-200 font-semibold">Savings</span>
+              <span className="font-mono">A/C: {accountNumber}</span>
+              <span className="text-slate-400">•</span>
+              <span className="text-[10px] text-orange-200 font-bold">Savings Passbook</span>
             </div>
             <span className="flex items-center gap-1 text-[10px] text-emerald-300 font-medium">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              Live CBS
+              Bank Statement
             </span>
           </div>
         </div>
       </div>
 
-      {/* 3. FILTER BAR: [All] [Debit] [Credit] <- Pill buttons, Orange for selected | Date: Oct 2026 */}
-      <div className="px-4 py-2.5 flex items-center justify-between gap-2 border-b border-slate-100 bg-white sticky top-[57px] z-20">
-        {/* Pill buttons: All, Debit, Credit */}
-        <div className="flex items-center gap-1.5">
-          {(['all', 'debit', 'credit'] as const).map((tab) => {
-            const active = filter === tab;
+      {/* 3. VIEW TOGGLE & FILTER BAR */}
+      <div className="px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-white sticky top-[57px] z-20 shadow-2xs">
+        {/* Toggle between Table View & Card View */}
+        <div className="flex items-center p-0.5 bg-slate-100 rounded-xl border border-slate-200">
+          <button
+            onClick={() => setViewMode('table')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              viewMode === 'table'
+                ? 'bg-white text-[#0A2E65] shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <TableIcon className="w-3.5 h-3.5 text-[#FF6B00]" />
+            <span>Passbook Table</span>
+          </button>
+          <button
+            onClick={() => setViewMode('cards')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              viewMode === 'cards'
+                ? 'bg-white text-[#0A2E65] shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Layers className="w-3.5 h-3.5 text-[#FF6B00]" />
+            <span>Cards</span>
+          </button>
+        </div>
+
+        {/* Filter Pills */}
+        <div className="flex items-center gap-1">
+          {(['all', 'debit', 'credit'] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setFilter(tab)}
+              className={`px-2.5 py-1 rounded-full text-[11px] font-extrabold uppercase transition-all cursor-pointer ${
+                filter === tab
+                  ? 'bg-[#FF6B00] text-white shadow-2xs'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              {tab === 'all' ? 'All' : tab === 'debit' ? 'Withdrawals' : 'Deposits'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* 4. PASSBOOK DETAILS & TRANSACTIONS CONTENT */}
+      {viewMode === 'table' ? (
+        <div className="p-3 sm:p-4">
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-300 overflow-hidden">
+            {/* Scrollable Ledger Table */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-[11px] font-mono whitespace-nowrap">
+                <thead>
+                  <tr className="bg-slate-50 text-slate-700 font-black uppercase text-[10px] tracking-wider border-b-2 border-slate-400 divide-x divide-slate-300">
+                    <th className="py-2.5 px-2.5 w-16 text-center">DATE</th>
+                    <th className="py-2.5 px-3 min-w-[220px]">PARTICULARS</th>
+                    <th className="py-2.5 px-3 min-w-[190px]">CHQ.NO.</th>
+                    <th className="py-2.5 px-3 text-right min-w-[110px]">WITHDRAWALS</th>
+                    <th className="py-2.5 px-3 text-right min-w-[130px]">DEPOSITS</th>
+                    <th className="py-2.5 px-3 text-right min-w-[140px]">BALANCE</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-300">
+                  {filteredTransactions.map((txn, index) => {
+                    const isFreezeRow =
+                      txn.narration.includes('FREEZE') ||
+                      (txn.remarks && txn.remarks.includes('FREEZE'));
+
+                    return (
+                      <tr
+                        key={txn.id || index}
+                        onClick={() => setSelectedTxn(txn)}
+                        className={`hover:bg-orange-50/60 divide-x divide-slate-300 cursor-pointer transition-colors ${
+                          index % 2 === 1 ? 'bg-slate-50/50' : 'bg-white'
+                        } ${isFreezeRow ? 'bg-amber-50/40' : ''}`}
+                      >
+                        {/* 1. DATE */}
+                        <td className="py-2 px-2.5 text-center font-bold text-slate-900">
+                          {txn.date}
+                        </td>
+
+                        {/* 2. PARTICULARS */}
+                        <td className="py-2 px-3 text-slate-800 max-w-[280px] truncate font-medium">
+                          <span
+                            title={txn.narration}
+                            className={isFreezeRow ? 'font-bold text-[#0A2E65]' : ''}
+                          >
+                            {txn.narration}
+                          </span>
+                        </td>
+
+                        {/* 3. CHQ.NO. */}
+                        <td className="py-2 px-3 text-slate-700 max-w-[220px] truncate">
+                          <span title={txn.chqNo || '-'}>{txn.chqNo || ''}</span>
+                        </td>
+
+                        {/* 4. WITHDRAWALS */}
+                        <td className="py-2 px-3 text-right font-bold text-rose-700">
+                          {txn.withdrawals || ''}
+                        </td>
+
+                        {/* 5. DEPOSITS */}
+                        <td className="py-2 px-3 text-right font-bold text-emerald-700">
+                          {txn.deposits || ''}
+                        </td>
+
+                        {/* 6. BALANCE */}
+                        <td className="py-2 px-3 text-right font-black text-slate-900">
+                          {txn.balanceStr || ''}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* MOBILE CARDS VIEW */
+        <div className="p-3 space-y-2.5">
+          {filteredTransactions.map((txn, index) => {
+            const isCredit = Boolean(txn.deposits);
+            const isDebit = Boolean(txn.withdrawals);
+            const isFreeze = txn.narration.includes('FREEZE');
+
             return (
-              <button
-                key={tab}
-                onClick={() => setFilter(tab)}
-                className={`px-3.5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
-                  active
-                    ? 'bg-[#FF6B00] text-white shadow-xs'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              <div
+                key={txn.id || index}
+                onClick={() => setSelectedTxn(txn)}
+                className={`p-3.5 rounded-2xl bg-white border border-slate-200/90 shadow-2xs hover:border-orange-300 hover:shadow-xs transition-all cursor-pointer ${
+                  isFreeze ? 'border-amber-300 bg-amber-50/20' : ''
                 }`}
               >
-                {tab === 'all' ? 'All' : tab === 'debit' ? 'Debit' : 'Credit'}
-              </button>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <div
+                      className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 ${
+                        isCredit
+                          ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
+                          : isDebit
+                          ? 'bg-rose-50 text-rose-600 border border-rose-200'
+                          : 'bg-slate-100 text-slate-600'
+                      }`}
+                    >
+                      {isCredit ? (
+                        <ArrowDownLeft className="w-4 h-4" />
+                      ) : isDebit ? (
+                        <ArrowUpRight className="w-4 h-4" />
+                      ) : (
+                        <FileText className="w-4 h-4" />
+                      )}
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-bold text-slate-400 block font-mono">
+                        {txn.date}
+                      </span>
+                      <h3 className="font-bold text-xs text-slate-800 line-clamp-1 max-w-[210px]">
+                        {txn.narration}
+                      </h3>
+                    </div>
+                  </div>
+
+                  <div className="text-right">
+                    {isCredit && (
+                      <span className="text-xs font-black text-emerald-600 font-mono block">
+                        +₹{txn.deposits}
+                      </span>
+                    )}
+                    {isDebit && (
+                      <span className="text-xs font-black text-rose-600 font-mono block">
+                        -₹{txn.withdrawals}
+                      </span>
+                    )}
+                    {!isCredit && !isDebit && (
+                      <span className="text-[10px] text-slate-500 font-mono block">Opening B/F</span>
+                    )}
+                    <span className="text-[10px] text-slate-500 font-mono">
+                      Bal: {txn.balanceStr || '-'}
+                    </span>
+                  </div>
+                </div>
+
+                {txn.chqNo && (
+                  <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-500 font-mono">
+                    <span className="truncate max-w-[280px]">Ref/Chq: {txn.chqNo}</span>
+                    <span className="text-[#FF6B00] font-bold shrink-0">Details &gt;</span>
+                  </div>
+                )}
+              </div>
             );
           })}
         </div>
+      )}
 
-        {/* Date Selector: Oct 2026 with calendar icon and chevron */}
-        <div className="relative">
-          <button
-            onClick={() => setIsMonthPickerOpen(!isMonthPickerOpen)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-700 hover:border-slate-300 transition-colors cursor-pointer"
-            title="Select Month Period"
-          >
-            <Calendar className="w-3.5 h-3.5 text-[#FF6B00]" />
-            <span>{selectedMonth}</span>
-            <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
-          </button>
-
-          {/* Month Dropdown */}
-          {isMonthPickerOpen && (
-            <div className="absolute right-0 top-full mt-1.5 w-36 bg-white rounded-2xl shadow-xl border border-slate-200 py-1 z-40 text-xs animate-in fade-in duration-150">
-              {['Oct 2026', 'Sep 2026', 'All Periods'].map((m) => (
-                <button
-                  key={m}
-                  onClick={() => {
-                    setSelectedMonth(m);
-                    setIsMonthPickerOpen(false);
-                  }}
-                  className={`w-full text-left px-3.5 py-2 font-medium hover:bg-orange-50 transition-colors cursor-pointer ${
-                    selectedMonth === m
-                      ? 'text-[#FF6B00] font-bold bg-orange-50/50'
-                      : 'text-slate-700'
-                  }`}
-                >
-                  {m}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* 4. TRANSACTION LIST - Real Bank Format */}
-      <div className="bg-white divide-y divide-slate-100">
-        {filteredTransactions.length === 0 ? (
-          <div className="py-16 text-center text-slate-400 text-xs">
-            No transactions found for the selected filter or search query.
-          </div>
-        ) : (
-          filteredTransactions.map((txn) => {
-            const isDebit = txn.type === 'debit';
-            const isFailed = txn.status === 'failed';
-            return (
-              <div
-                key={txn.id}
-                onClick={() => setSelectedTxn(txn)}
-                className={`py-3.5 px-4 flex items-start gap-3 active:bg-orange-50/30 cursor-pointer transition-colors ${
-                  isFailed ? 'bg-red-50/40 hover:bg-red-50/70 border-l-3 border-red-500' : 'hover:bg-slate-50/80'
-                }`}
-              >
-                {/* Left Dot Indicator: Red for Debit / Failed, Green for Credit */}
-                <div
-                  className={`w-2.5 h-2.5 rounded-full mt-1.5 shrink-0 ${
-                    isFailed
-                      ? 'bg-red-600 animate-pulse ring-2 ring-red-300'
-                      : isDebit
-                      ? 'bg-[#EF4444]'
-                      : 'bg-[#10B981]'
-                  }`}
-                />
-
-                {/* Main Content */}
-                <div className="flex-1 min-w-0">
-                  {/* Top row: Date on left, Amount on right */}
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs text-slate-500 font-normal">
-                      {txn.date}
-                    </span>
-                    <div className="flex items-center gap-1.5 shrink-0 text-right">
-                      {isFailed && (
-                        <span className="text-[9px] font-black bg-red-600 text-white px-1.5 py-0.5 rounded-xs tracking-wider">
-                          FAILED
-                        </span>
-                      )}
-                      <span
-                        className={`text-sm sm:text-base font-bold font-mono tracking-tight ${
-                          isFailed || isDebit ? 'text-[#DC2626]' : 'text-[#15803D]'
-                        }`}
-                      >
-                        {isDebit ? '₹ -' : '₹ +'}{txn.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Narration in bold font */}
-                  <p className="text-sm font-semibold text-slate-900 leading-snug break-words mt-0.5">
-                    {txn.narration}
-                  </p>
-
-                  {/* Failed Reason in Red if failed */}
-                  {isFailed && (
-                    <div className="mt-1 flex items-center gap-1.5 text-xs font-bold text-red-600">
-                      <AlertOctagon className="w-3.5 h-3.5 shrink-0 text-red-600" />
-                      <span>Reason: {txn.reason || 'Account Freezed - Suspicious Activity'}</span>
-                    </div>
-                  )}
-
-                  {/* Bottom row: Balance on left, optional Charges on right */}
-                  <div className="flex items-center justify-between gap-2 mt-1 text-xs text-slate-500">
-                    <span className="font-mono">
-                      Balance: ₹{txn.balanceAfter.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                    </span>
-                    {isFailed ? (
-                      <span className="text-[10px] font-bold text-red-600">
-                        Debit Not Allowed
-                      </span>
-                    ) : txn.charges ? (
-                      <span className="text-[11px] text-slate-500">
-                        Charges ₹{txn.charges.toFixed(2)}
-                      </span>
-                    ) : null}
-                  </div>
-                </div>
-              </div>
-            );
-          })
-        )}
-      </div>
-
-      {/* 5. FULL PAGE TRANSACTION DETAIL MODAL (ON TAP) */}
+      {/* 5. TRANSACTION DETAILS MODAL */}
       {selectedTxn && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 backdrop-blur-xs p-4 animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 text-xs flex flex-col max-h-[90vh]">
-            {/* Modal Header */}
-            <div className={`p-4 text-white flex items-center justify-between ${
-              selectedTxn.status === 'failed'
-                ? 'bg-linear-to-r from-red-700 to-rose-800'
-                : 'bg-linear-to-r from-[#0A2E65] to-[#144287]'
-            }`}>
+            {/* Header */}
+            <div className="p-4 bg-linear-to-r from-[#0A2E65] to-[#144287] text-white flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <FileText className="w-4 h-4 text-orange-400" />
-                <div>
-                  <h3 className="font-extrabold text-sm sm:text-base">
-                    {selectedTxn.status === 'failed' ? 'Transaction Advice (Failed)' : 'Transaction Details'}
-                  </h3>
-                  <p className="text-[10px] text-slate-300">Bank of Baroda e-Advice</p>
-                </div>
+                <h3 className="font-extrabold text-sm">Passbook Transaction Advice</h3>
               </div>
               <button
                 onClick={() => setSelectedTxn(null)}
@@ -484,142 +444,149 @@ export const ScreenMPassbook: React.FC<ScreenMPassbookProps> = ({
               </button>
             </div>
 
-            {/* Modal Content */}
+            {/* Content */}
             <div className="p-5 overflow-y-auto space-y-3.5 flex-1">
-              <div className={`text-center py-2.5 rounded-2xl border ${
-                selectedTxn.status === 'failed'
-                  ? 'bg-red-50 border-red-200'
-                  : 'bg-slate-50 border-slate-100'
-              }`}>
-                <span className={`text-[10px] uppercase font-bold tracking-wider ${
-                  selectedTxn.status === 'failed' ? 'text-red-500' : 'text-slate-400'
-                }`}>
-                  {selectedTxn.status === 'failed'
-                    ? 'Debit Not Processed (Failed)'
-                    : selectedTxn.type === 'debit'
-                    ? 'Amount Debited'
-                    : 'Amount Credited'}
+              {/* Top Amount Banner */}
+              <div className="text-center py-3 px-4 rounded-2xl bg-slate-50 border border-slate-200">
+                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                  {selectedTxn.deposits
+                    ? 'Amount Deposited / Credited'
+                    : selectedTxn.withdrawals
+                    ? 'Amount Withdrawn / Debited'
+                    : 'Opening Ledger Record'}
                 </span>
                 <div
-                  className={`text-2xl font-black font-mono my-1 ${
-                    selectedTxn.status === 'failed' || selectedTxn.type === 'debit'
-                      ? 'text-[#DC2626]'
-                      : 'text-[#15803D]'
+                  className={`text-xl sm:text-2xl font-black font-mono my-1 ${
+                    selectedTxn.deposits
+                      ? 'text-emerald-700'
+                      : selectedTxn.withdrawals
+                      ? 'text-rose-700'
+                      : 'text-slate-800'
                   }`}
                 >
-                  {selectedTxn.type === 'debit' ? '-' : '+'} ₹{selectedTxn.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                  {selectedTxn.deposits
+                    ? `+₹ ${selectedTxn.deposits}`
+                    : selectedTxn.withdrawals
+                    ? `-₹ ${selectedTxn.withdrawals}`
+                    : selectedTxn.balanceStr}
                 </div>
-                {selectedTxn.status === 'failed' ? (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-red-700 bg-red-100 px-2.5 py-0.5 rounded-full border border-red-300">
-                    <AlertOctagon className="w-3 h-3 text-red-600" />
-                    Status: FAILED (Account Freezed)
+                <div className="flex items-center justify-center gap-1.5 mt-1">
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white border border-slate-200 text-slate-700">
+                    Date: {selectedTxn.date}
                   </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                    <CheckCircle2 className="w-3 h-3" />
-                    Status: Completed Successfully
-                  </span>
-                )}
+                  {selectedTxn.balanceStr && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-50 border border-orange-200 text-[#FF6B00]">
+                      Bal: {selectedTxn.balanceStr}
+                    </span>
+                  )}
+                </div>
               </div>
 
-              {/* Exact Fields: Transaction ID, UTR No, IFSC, Reference No, Remarks */}
-              <div className="space-y-2 bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80 text-[11px]">
-                {/* 1. Transaction ID */}
-                <div className="flex justify-between items-center pb-1.5 border-b border-slate-200/60">
-                  <span className="text-slate-500 font-medium">Transaction ID:</span>
-                  <div className="flex items-center gap-1">
-                    <span className="font-mono font-bold text-slate-800">{selectedTxn.txnId}</span>
+              {/* Exact Details Fields */}
+              <div className="space-y-2.5 bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80 text-[11px]">
+                {/* Particulars */}
+                <div className="pb-2 border-b border-slate-200">
+                  <span className="text-slate-500 font-medium block text-[10px] uppercase">
+                    Particulars:
+                  </span>
+                  <p className="font-mono font-bold text-slate-900 mt-0.5 break-words">
+                    {selectedTxn.narration}
+                  </p>
+                </div>
+
+                {/* Chq. No. / Reference */}
+                {selectedTxn.chqNo && (
+                  <div className="pb-2 border-b border-slate-200 flex justify-between items-start gap-2">
+                    <div>
+                      <span className="text-slate-500 font-medium block text-[10px] uppercase">
+                        Chq. No. / Ref:
+                      </span>
+                      <span className="font-mono font-bold text-[#0A2E65] break-all">
+                        {selectedTxn.chqNo}
+                      </span>
+                    </div>
                     <button
-                      onClick={() => handleCopy(selectedTxn.txnId, 'Txn ID')}
+                      onClick={() => handleCopy(selectedTxn.chqNo || '', 'Chq/Ref')}
                       className="p-1 text-slate-400 hover:text-[#FF6B00] cursor-pointer"
                       title="Copy"
                     >
-                      <Copy className="w-3 h-3" />
+                      {copiedField === 'Chq/Ref' ? (
+                        <Check className="w-3.5 h-3.5 text-emerald-600" />
+                      ) : (
+                        <Copy className="w-3.5 h-3.5" />
+                      )}
                     </button>
                   </div>
-                </div>
+                )}
 
-                {/* 2. UTR No */}
-                <div className="flex justify-between items-center pb-1.5 border-b border-slate-200/60">
-                  <span className="text-slate-500 font-medium">UTR Number:</span>
-                  <div className="flex items-center gap-1">
-                    <span className="font-mono font-black text-[#0A2E65]">{selectedTxn.utrNo}</span>
-                    <button
-                      onClick={() => handleCopy(selectedTxn.utrNo, 'UTR')}
-                      className="p-1 text-slate-400 hover:text-[#FF6B00] cursor-pointer"
-                      title="Copy UTR"
-                    >
-                      {copiedField === 'UTR' ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
-                    </button>
+                {/* Withdrawals */}
+                {selectedTxn.withdrawals && (
+                  <div className="flex justify-between items-center pb-1.5 border-b border-slate-200">
+                    <span className="text-slate-500 font-medium">Withdrawal:</span>
+                    <span className="font-mono font-bold text-rose-600">
+                      ₹ {selectedTxn.withdrawals}
+                    </span>
                   </div>
-                </div>
+                )}
 
-                {/* 3. IFSC Code */}
-                <div className="flex justify-between items-center pb-1.5 border-b border-slate-200/60">
-                  <span className="text-slate-500 font-medium">IFSC Code:</span>
-                  <div className="flex items-center gap-1">
-                    <span className="font-mono font-bold text-slate-800">{selectedTxn.ifsc}</span>
-                    <button
-                      onClick={() => handleCopy(selectedTxn.ifsc, 'IFSC')}
-                      className="p-1 text-slate-400 hover:text-[#FF6B00] cursor-pointer"
-                      title="Copy IFSC"
-                    >
-                      <Copy className="w-3 h-3" />
-                    </button>
+                {/* Deposits */}
+                {selectedTxn.deposits && (
+                  <div className="flex justify-between items-center pb-1.5 border-b border-slate-200">
+                    <span className="text-slate-500 font-medium">Deposit:</span>
+                    <span className="font-mono font-bold text-emerald-600">
+                      ₹ {selectedTxn.deposits}
+                    </span>
                   </div>
-                </div>
+                )}
 
-                {/* 4. Reference No */}
-                <div className="flex justify-between items-center pb-1.5 border-b border-slate-200/60">
-                  <span className="text-slate-500 font-medium">Reference No:</span>
-                  <span className="font-mono text-slate-800">{selectedTxn.refNo}</span>
-                </div>
+                {/* Balance after entry */}
+                {selectedTxn.balanceStr && (
+                  <div className="flex justify-between items-center pb-1.5 border-b border-slate-200">
+                    <span className="text-slate-500 font-medium">Running Balance:</span>
+                    <span className="font-mono font-black text-slate-900">
+                      ₹ {selectedTxn.balanceStr}
+                    </span>
+                  </div>
+                )}
 
-                {/* 5. Remarks */}
-                <div className="flex justify-between items-center pb-1.5 border-b border-slate-200/60">
-                  <span className="text-slate-500 font-medium">Remarks:</span>
-                  <span className="font-semibold text-slate-800">{selectedTxn.remarks}</span>
-                </div>
-
-                {/* Value Date & Post-Txn Balance */}
-                <div className="flex justify-between items-center pb-1.5 border-b border-slate-200/60">
-                  <span className="text-slate-500 font-medium">Value Date:</span>
-                  <span className="text-slate-800">{selectedTxn.date}</span>
-                </div>
-
-                <div className="flex justify-between items-center pt-0.5">
-                  <span className="text-slate-500 font-medium">Balance After Txn:</span>
-                  <span className="font-mono font-bold text-slate-900">
-                    ₹{selectedTxn.balanceAfter.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                  </span>
-                </div>
+                {/* Security Hold note */}
+                {selectedTxn.narration.includes('FREEZE') && (
+                  <div className="p-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-[10px] flex items-start gap-1.5">
+                    <ShieldAlert className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                    <span>
+                      Notice: SWIFT Inward transaction recorded under security freeze protocol.
+                    </span>
+                  </div>
+                )}
               </div>
 
-              {/* Action Buttons */}
+              {/* Actions */}
               <div className="grid grid-cols-2 gap-2 pt-1">
                 <button
                   type="button"
                   onClick={() => {
-                    handleCopy(
-                      `Bank of Baroda Transaction Advice:\nUTR: ${selectedTxn.utrNo}\nAmount: ₹${selectedTxn.amount}\nNarration: ${selectedTxn.narration}\nDate: ${selectedTxn.date}\nRef: ${selectedTxn.refNo}`,
-                      'Full Advice'
-                    );
+                    const text = `Bank of Baroda Transaction:\nDate: ${selectedTxn.date}\nParticulars: ${selectedTxn.narration}\nRef: ${selectedTxn.chqNo || '-'}\nBalance: ${selectedTxn.balanceStr || '-'}`;
+                    if (navigator?.clipboard?.writeText) {
+                      navigator.clipboard.writeText(text);
+                    }
+                    onToast('Transaction slip details copied!', 'success');
                   }}
                   className="py-2.5 px-3 rounded-xl border border-slate-200 hover:bg-slate-50 font-bold text-slate-700 flex items-center justify-center gap-1.5 cursor-pointer"
                 >
-                  <Share2 className="w-3.5 h-3.5 text-[#FF6B00]" />
-                  <span>Share Advice</span>
+                  <Copy className="w-3.5 h-3.5 text-[#FF6B00]" />
+                  <span>Copy Details</span>
                 </button>
+
                 <button
                   type="button"
                   onClick={() => {
-                    onToast('e-Receipt downloaded successfully!', 'success');
+                    onToast('Passbook slip advice shared successfully.', 'success');
                     setSelectedTxn(null);
                   }}
                   className="py-2.5 px-3 rounded-xl bg-[#0A2E65] hover:bg-[#071f45] text-white font-bold flex items-center justify-center gap-1.5 shadow-md shadow-blue-950/20 cursor-pointer"
                 >
-                  <Download className="w-3.5 h-3.5 text-orange-400" />
-                  <span>Download Slip</span>
+                  <Share2 className="w-3.5 h-3.5 text-orange-400" />
+                  <span>Share Slip</span>
                 </button>
               </div>
             </div>
@@ -627,128 +594,57 @@ export const ScreenMPassbook: React.FC<ScreenMPassbookProps> = ({
         </div>
       )}
 
-      {/* 6. DOWNLOAD PDF STATEMENT MODAL */}
+      {/* 6. DOWNLOAD STATEMENT MODAL */}
       {isDownloadModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 backdrop-blur-xs p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 text-xs flex flex-col">
-            {/* Header */}
-            <div className="p-4 bg-linear-to-r from-[#0A2E65] to-[#144287] text-white flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Download className="w-4 h-4 text-orange-400" />
-                <div>
-                  <h3 className="font-extrabold text-sm sm:text-base">Download Account Statement</h3>
-                  <p className="text-[10px] text-slate-300">Savings - {accountNumber}</p>
-                </div>
-              </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl p-5 text-xs animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <h3 className="font-extrabold text-sm text-[#0A2E65]">Download Passbook Statement</h3>
               <button
                 onClick={() => setIsDownloadModalOpen(false)}
-                className="p-1 rounded-full text-white/80 hover:text-white cursor-pointer"
+                className="p-1 rounded-full text-slate-400 hover:text-slate-600 cursor-pointer"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Content */}
-            <div className="p-5 space-y-4">
-              {/* Account Summary Banner */}
-              <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200/80 flex items-center justify-between">
-                <div>
-                  <span className="text-[10px] uppercase font-bold text-slate-400 block">
-                    Account Balance
-                  </span>
-                  <span className="text-base font-black font-mono text-[#0A2E65]">
-                    ₹ {formattedBalance}
-                  </span>
-                </div>
-                <div className="text-right">
-                  <span className="text-[10px] text-slate-500 block">Bank of Baroda</span>
-                  <span className="text-[11px] font-bold text-emerald-600">Active</span>
-                </div>
-              </div>
-
-              {/* Statement Period */}
+            <div className="my-4 space-y-3">
               <div>
-                <label className="text-[11px] font-bold text-slate-700 block mb-1.5">
-                  Statement Period
-                </label>
-                <div className="space-y-1.5">
-                  {[
-                    { id: '1month', label: 'Last 1 Month (Oct 2026)' },
-                    { id: '3months', label: 'Last 3 Months (Aug 2026 - Oct 2026)' },
-                    { id: 'fy26', label: 'Financial Year 2026-27' },
-                  ].map((p) => (
-                    <label
-                      key={p.id}
-                      className={`flex items-center justify-between p-2.5 rounded-xl border cursor-pointer transition-colors ${
-                        statementPeriod === p.id
-                          ? 'border-[#FF6B00] bg-orange-50/40 text-slate-900 font-bold'
-                          : 'border-slate-200 hover:bg-slate-50 text-slate-700'
+                <span className="text-[10px] uppercase font-bold text-slate-400 block mb-1">
+                  Format
+                </span>
+                <div className="grid grid-cols-2 gap-2">
+                  {(['pdf', 'excel'] as const).map((fmt) => (
+                    <button
+                      key={fmt}
+                      onClick={() => setStatementFormat(fmt)}
+                      className={`p-2.5 rounded-xl border font-bold capitalize transition-all cursor-pointer ${
+                        statementFormat === fmt
+                          ? 'bg-orange-50 border-[#FF6B00] text-[#FF6B00]'
+                          : 'bg-slate-50 border-slate-200 text-slate-600'
                       }`}
                     >
-                      <span className="text-xs">{p.label}</span>
-                      <input
-                        type="radio"
-                        name="statementPeriod"
-                        checked={statementPeriod === p.id}
-                        onChange={() => setStatementPeriod(p.id as any)}
-                        className="text-[#FF6B00] focus:ring-[#FF6B00]"
-                      />
-                    </label>
+                      {fmt.toUpperCase()}
+                    </button>
                   ))}
                 </div>
               </div>
-
-              {/* Format selection */}
-              <div>
-                <label className="text-[11px] font-bold text-slate-700 block mb-1.5">
-                  File Format
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setStatementFormat('pdf')}
-                    className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
-                      statementFormat === 'pdf'
-                        ? 'border-[#FF6B00] bg-[#FF6B00] text-white shadow-xs'
-                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                    }`}
-                  >
-                    PDF Statement
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setStatementFormat('excel')}
-                    className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
-                      statementFormat === 'excel'
-                        ? 'border-[#FF6B00] bg-[#FF6B00] text-white shadow-xs'
-                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                    }`}
-                  >
-                    Excel (.xlsx)
-                  </button>
-                </div>
-              </div>
-
-              {/* Submit Button */}
-              <button
-                type="button"
-                onClick={handleDownloadStatement}
-                disabled={isDownloading}
-                className="w-full py-3 rounded-xl bg-linear-to-r from-[#0A2E65] to-[#144287] hover:from-[#082450] hover:to-[#0f346b] text-white font-bold text-sm shadow-md shadow-blue-950/20 flex items-center justify-center gap-2 cursor-pointer transition-all disabled:opacity-60"
-              >
-                {isDownloading ? (
-                  <>
-                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    <span>Generating Statement...</span>
-                  </>
-                ) : (
-                  <>
-                    <Download className="w-4 h-4 text-orange-400" />
-                    <span>Download Statement</span>
-                  </>
-                )}
-              </button>
             </div>
+
+            <button
+              onClick={handleDownloadStatement}
+              disabled={isDownloading}
+              className="w-full py-3 rounded-xl bg-[#FF6B00] hover:bg-[#e65c00] text-white font-bold flex items-center justify-center gap-2 shadow-md shadow-orange-500/20 active:scale-98 transition-all cursor-pointer"
+            >
+              {isDownloading ? (
+                <span>Generating Statement...</span>
+              ) : (
+                <>
+                  <Download className="w-4 h-4" />
+                  <span>Download Now</span>
+                </>
+              )}
+            </button>
           </div>
         </div>
       )}

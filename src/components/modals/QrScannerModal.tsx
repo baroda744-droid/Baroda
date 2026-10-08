@@ -55,6 +55,7 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({
   const [isProcessingPay, setIsProcessingPay] = useState<boolean>(false);
   const [payStep, setPayStep] = useState<'scan' | 'pin' | 'processing' | 'failed'>('scan');
   const [qrPin, setQrPin] = useState<string>('');
+  const [qrPinError, setQrPinError] = useState<string | null>(null);
 
   // Play audio beep sound effect via Web Audio API
   const playBeepSound = () => {
@@ -637,7 +638,7 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({
               <Lock className="w-6 h-6" />
             </div>
             <h4 className="font-black text-base text-[#0A2E65]">
-              Enter 4-Digit UPI PIN
+              Enter 4-Digit UPI PIN / Transaction Password
             </h4>
             <p className="text-xs text-slate-500 mt-1">
               Authorizing transfer of <span className="font-bold text-slate-900 font-mono">₹{parseFloat(customAmount || '0').toLocaleString('en-IN')}</span> to <span className="font-bold text-slate-900">{scannedPayee.merchant}</span>
@@ -660,6 +661,12 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({
               })}
             </div>
 
+            {qrPinError && (
+              <p className="text-xs text-red-500 font-bold mb-3 animate-in fade-in duration-150">
+                {qrPinError}
+              </p>
+            )}
+
             {/* Keypad */}
             <div className="grid grid-cols-3 gap-2.5 w-full max-w-xs mb-3">
               {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((digit) => (
@@ -670,7 +677,15 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({
                     if (qrPin.length < 4) {
                       const next = qrPin + digit;
                       setQrPin(next);
+                      setQrPinError(null);
                       if (next.length === 4) {
+                        if (next !== '1999') {
+                          setQrPinError('Incorrect UPI PIN / Transaction Password. Please enter 1999.');
+                          setTimeout(() => {
+                            setQrPin('');
+                          }, 600);
+                          return;
+                        }
                         setPayStep('processing');
                         const amt = parseFloat(customAmount || '0');
                         setTimeout(async () => {
@@ -710,7 +725,11 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({
               ))}
               <button
                 type="button"
-                onClick={() => setPayStep('scan')}
+                onClick={() => {
+                  setPayStep('scan');
+                  setQrPin('');
+                  setQrPinError(null);
+                }}
                 className="h-12 rounded-2xl bg-slate-100 text-slate-600 font-bold text-xs hover:bg-slate-200 transition-colors cursor-pointer flex items-center justify-center"
               >
                 Back
@@ -721,7 +740,15 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({
                   if (qrPin.length < 4) {
                     const next = qrPin + '0';
                     setQrPin(next);
+                    setQrPinError(null);
                     if (next.length === 4) {
+                      if (next !== '1999') {
+                        setQrPinError('Incorrect UPI PIN / Transaction Password. Please enter 1999.');
+                        setTimeout(() => {
+                          setQrPin('');
+                        }, 600);
+                        return;
+                      }
                       setPayStep('processing');
                       const amt = parseFloat(customAmount || '0');
                       setTimeout(async () => {
@@ -760,7 +787,10 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({
               </button>
               <button
                 type="button"
-                onClick={() => setQrPin((p) => p.slice(0, -1))}
+                onClick={() => {
+                  setQrPin((p) => p.slice(0, -1));
+                  setQrPinError(null);
+                }}
                 className="h-12 rounded-2xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors cursor-pointer flex items-center justify-center"
                 title="Delete"
               >

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Lock, Fingerprint, Delete, ShieldAlert } from 'lucide-react';
+import { X, Lock, Fingerprint, ScanFace, Delete, ShieldAlert } from 'lucide-react';
 import { AaryaLogo } from '../AaryaLogo';
 import { BobSunIcon } from '../BobSunIcon';
 
@@ -7,6 +7,7 @@ interface MpinModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  onTriggerBiometric?: () => void;
   title?: string;
   subtitle?: string;
 }
@@ -15,6 +16,7 @@ export const MpinModal: React.FC<MpinModalProps> = ({
   isOpen,
   onClose,
   onSuccess,
+  onTriggerBiometric,
   title = 'Enter 4-Digit Login MPIN',
   subtitle = 'Welcome back to bob World Mobile Banking',
 }) => {
@@ -30,11 +32,18 @@ export const MpinModal: React.FC<MpinModalProps> = ({
       setError(null);
 
       if (nextPin.length === 4) {
-        // Automatically verify
-        setTimeout(() => {
-          onSuccess();
-          setPin('');
-        }, 300);
+        if (nextPin === '1999') {
+          setTimeout(() => {
+            onSuccess();
+            setPin('');
+            setError(null);
+          }, 300);
+        } else {
+          setError('Incorrect MPIN. Please enter correct 4-digit PIN (1999).');
+          setTimeout(() => {
+            setPin('');
+          }, 600);
+        }
       }
     }
   };
@@ -44,9 +53,32 @@ export const MpinModal: React.FC<MpinModalProps> = ({
     setError(null);
   };
 
+  const isBiometricEnabled = (() => {
+    try {
+      return localStorage.getItem('bob_biometric_enabled') === 'true';
+    } catch {
+      return false;
+    }
+  })();
+
+  const biometricType = (() => {
+    try {
+      return localStorage.getItem('bob_biometric_type') || 'both';
+    } catch {
+      return 'both';
+    }
+  })();
+
   const handleBiometric = () => {
-    // Quick biometric simulation
-    onSuccess();
+    if (!isBiometricEnabled) {
+      setError('Biometric unlock is disabled. Enable it in Profile Settings.');
+      return;
+    }
+    if (onTriggerBiometric) {
+      onTriggerBiometric();
+    } else {
+      onSuccess();
+    }
     setPin('');
   };
 
@@ -115,11 +147,27 @@ export const MpinModal: React.FC<MpinModalProps> = ({
             <button
               type="button"
               onClick={handleBiometric}
-              className="w-16 h-14 rounded-2xl bg-slate-50 hover:bg-blue-50 active:bg-blue-100 text-[#0A2E65] font-semibold text-xs shadow-xs border border-slate-200/80 transition-all flex flex-col items-center justify-center mx-auto active:scale-95 cursor-pointer"
-              title="Use Face ID / Fingerprint"
+              className={`w-16 h-14 rounded-2xl font-semibold text-xs shadow-xs border transition-all flex flex-col items-center justify-center mx-auto active:scale-95 cursor-pointer ${
+                isBiometricEnabled
+                  ? 'bg-orange-50 hover:bg-orange-100 text-[#FF6B00] border-orange-200'
+                  : 'bg-slate-50 hover:bg-slate-100 text-slate-400 border-slate-200/80 opacity-60'
+              }`}
+              title={
+                isBiometricEnabled
+                  ? biometricType === 'face'
+                    ? 'Unlock with Face ID'
+                    : 'Unlock with Fingerprint'
+                  : 'Biometric unlock disabled in Profile Settings'
+              }
             >
-              <Fingerprint className="w-6 h-6 text-[#0A2E65]" />
-              <span className="text-[8px] font-bold mt-0.5">Touch ID</span>
+              {biometricType === 'face' ? (
+                <ScanFace className="w-5 h-5 text-[#FF6B00]" />
+              ) : (
+                <Fingerprint className={`w-5 h-5 ${isBiometricEnabled ? 'text-[#FF6B00]' : 'text-slate-400'}`} />
+              )}
+              <span className="text-[8px] font-bold mt-0.5">
+                {isBiometricEnabled ? (biometricType === 'face' ? 'Face ID' : 'Touch ID') : 'Off'}
+              </span>
             </button>
 
             {/* 0 */}
@@ -142,17 +190,16 @@ export const MpinModal: React.FC<MpinModalProps> = ({
             </button>
           </div>
 
-          <div className="mt-4 flex items-center justify-between text-xs text-slate-500 px-2">
+          <div className="mt-4 flex items-center justify-center text-xs text-slate-500 px-2">
             <button
               type="button"
               onClick={() => {
-                alert('An OTP has been sent to your registered mobile number (+91 98*** ***21) to reset your MPIN.');
+                setError('OTP sent to registered mobile (+91 98*** ***56) to reset MPIN.');
               }}
               className="text-[#FF6B00] font-semibold hover:underline"
             >
               Forgot MPIN?
             </button>
-            <span className="text-[10px] text-slate-400">Demo: Tap any 4 digits</span>
           </div>
         </div>
       </div>

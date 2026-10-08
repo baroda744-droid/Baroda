@@ -40,12 +40,11 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Bell Notifications */}
           <button
             onClick={onNotificationClick}
-            className="w-9 h-9 rounded-full relative flex items-center justify-center text-slate-600 hover:text-[#FF6B00] hover:bg-orange-50 active:scale-95 transition-all"
+            className="w-9 h-9 rounded-full relative flex items-center justify-center text-slate-600 hover:text-[#FF6B00] hover:bg-orange-50 active:scale-95 transition-all cursor-pointer"
             aria-label="Notifications"
             title="Notifications"
           >
             <Bell className="w-5 h-5" />
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#FF4D00] ring-2 ring-white animate-pulse" />
           </button>
 
           {/* Profile Icon (top right) -> on click go to Profile Page */}

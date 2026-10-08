@@ -17,39 +17,55 @@ import {
   MapPin,
   X,
   FileText,
+  LogOut,
+  Fingerprint,
+  ScanFace,
+  Lock,
+  Sparkles,
 } from 'lucide-react';
 import { UserProfileData } from '../types';
 import { BobSunIcon } from './BobSunIcon';
+import { BiometricAuthModal } from './modals/BiometricAuthModal';
 
 interface ScreenProfileProps {
   onBack: () => void;
   onToast: (msg: string, type?: 'success' | 'info' | 'warning') => void;
+  onLogout?: () => void;
 }
 
 const DEFAULT_PROFILE: UserProfileData = {
-  name: 'Aarya',
-  accountNumber: '4091 8820 1234',
-  maskedAccountNumber: 'XXXX XXXX 1234',
-  accountType: 'Savings',
-  ifsc: 'BARB0CHENNA',
-  micr: '600012045',
-  branch: 'BOB Bank - Chennai Main',
-  customerId: 'AAR12345678',
+  name: 'RAPOODDIN C',
+  accountNumber: '8709 0200 0000 08',
+  maskedAccountNumber: 'XXXX XXXX XXXX 0008',
+  accountType: 'Current',
+  ifsc: 'BARB0NAGARI',
+  micr: '517012006',
+  branch: 'Bank of Baroda - Nagari Branch',
+  customerId: '10670093127',
+  crn: '10670093127',
   mobile: '+91 98401 23456',
-  email: 'aarya@email.com',
-  pan: 'XXXXX1234X',
-  address: 'Chennai, TN',
+  email: 'rapooddin.c@email.com',
+  pan: 'EPXPR1547R',
+  address: 'Chittoor, Andhra Pradesh',
 };
 
-export const ScreenProfile: React.FC<ScreenProfileProps> = ({ onBack, onToast }) => {
-  // Load profile from localStorage
+export const ScreenProfile: React.FC<ScreenProfileProps> = ({ onBack, onToast, onLogout }) => {
+  // Load profile from localStorage or default
   const [profile, setProfile] = useState<UserProfileData>(() => {
     try {
       const saved = localStorage.getItem('bob_user_profile');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.accountNumber === '8709 0200 0000 08' || parsed.accountNumber === '87090200000008') {
+          return parsed;
+        }
+      }
     } catch (e) {
       // fallback
     }
+    try {
+      localStorage.setItem('bob_user_profile', JSON.stringify(DEFAULT_PROFILE));
+    } catch (e) {}
     return DEFAULT_PROFILE;
   });
 
@@ -61,6 +77,50 @@ export const ScreenProfile: React.FC<ScreenProfileProps> = ({ onBack, onToast })
 
   // Share statement preview modal state
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+
+  // Biometric Authentication State stored in localStorage
+  const [isBiometricEnabled, setIsBiometricEnabled] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('bob_biometric_enabled') === 'true';
+    } catch (e) {
+      return false;
+    }
+  });
+
+  const [biometricType, setBiometricType] = useState<'both' | 'fingerprint' | 'face'>(() => {
+    try {
+      const saved = localStorage.getItem('bob_biometric_type');
+      if (saved === 'fingerprint' || saved === 'face' || saved === 'both') {
+        return saved;
+      }
+    } catch (e) {}
+    return 'both';
+  });
+
+  const [isTestBiometricOpen, setIsTestBiometricOpen] = useState(false);
+
+  const handleToggleBiometric = () => {
+    const nextVal = !isBiometricEnabled;
+    setIsBiometricEnabled(nextVal);
+    try {
+      localStorage.setItem('bob_biometric_enabled', nextVal ? 'true' : 'false');
+    } catch (e) {}
+
+    if (nextVal) {
+      onToast('Biometric unlock enabled! You can now use Fingerprint or Face ID on login.', 'success');
+    } else {
+      onToast('Biometric unlock disabled. 4-Digit MPIN will be required to log in.', 'info');
+    }
+  };
+
+  const handleSelectBiometricType = (type: 'both' | 'fingerprint' | 'face') => {
+    setBiometricType(type);
+    try {
+      localStorage.setItem('bob_biometric_type', type);
+    } catch (e) {}
+    const label = type === 'face' ? 'Face ID / Facial Recognition' : type === 'fingerprint' ? 'Fingerprint / Touch ID' : 'Face ID & Fingerprint';
+    onToast(`Biometric preference updated: ${label}`, 'info');
+  };
 
   // Sync with localStorage
   useEffect(() => {
@@ -85,7 +145,7 @@ export const ScreenProfile: React.FC<ScreenProfileProps> = ({ onBack, onToast })
 
   return (
     <div className="relative pb-24 text-slate-800 animate-in fade-in duration-200">
-      {/* TOP HEADER: Back button + Title + Share action */}
+      {/* TOP HEADER: Back button + Title + Top Right Actions (Share + Log Out) */}
       <div className="bg-white px-4 py-3.5 border-b border-orange-100 flex items-center justify-between sticky top-0 z-30 shadow-xs -mx-4 mb-4">
         <div className="flex items-center gap-2.5">
           <button
@@ -106,15 +166,26 @@ export const ScreenProfile: React.FC<ScreenProfileProps> = ({ onBack, onToast })
           </div>
         </div>
 
-        {/* Share Button (Top Right) */}
-        <button
-          onClick={() => setIsShareModalOpen(true)}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-orange-50 hover:bg-orange-100 text-[#FF6B00] font-bold text-xs border border-orange-200/80 active:scale-95 transition-all cursor-pointer shadow-2xs"
-          title="Share account details PDF"
-        >
-          <Share2 className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">Share PDF</span>
-        </button>
+        {/* Top Right Actions: Share PDF & Log Out */}
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          <button
+            onClick={() => setIsShareModalOpen(true)}
+            className="p-2 rounded-xl bg-orange-50 hover:bg-orange-100 text-[#FF6B00] border border-orange-200/80 active:scale-95 transition-all cursor-pointer shadow-2xs"
+            title="Share account details PDF"
+          >
+            <Share2 className="w-3.5 h-3.5" />
+          </button>
+
+          {/* Log Out Button (Top Right) */}
+          <button
+            onClick={onLogout}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 font-extrabold text-xs border border-red-200 active:scale-95 transition-all cursor-pointer shadow-2xs"
+            title="Log Out of Session"
+          >
+            <LogOut className="w-3.5 h-3.5 text-red-600" />
+            <span>Log out</span>
+          </button>
+        </div>
       </div>
 
       <div className="space-y-4">
@@ -268,26 +339,55 @@ export const ScreenProfile: React.FC<ScreenProfileProps> = ({ onBack, onToast })
               </button>
             </div>
 
-            {/* 3. Branch */}
+            {/* 3. CRN Number (Customer Relationship Number) [Copy icon] */}
+            <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center justify-between hover:bg-orange-50/40 transition-colors">
+              <div>
+                <span className="text-[10px] uppercase font-bold text-slate-400 block">
+                  3. CRN Number
+                </span>
+                <span className="font-mono font-black text-sm text-[#0A2E65]">
+                  {profile.crn || '10670093127'}
+                </span>
+              </div>
+              <button
+                onClick={() => handleCopy(profile.crn || '10670093127', 'CRN Number')}
+                className="p-2 rounded-xl bg-white hover:bg-orange-100 text-slate-700 hover:text-[#FF6B00] border border-slate-200 flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer shadow-2xs font-bold text-[11px]"
+                title="Copy CRN Number"
+              >
+                {copiedField === 'CRN Number' ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 text-emerald-600" />
+                    <span className="text-emerald-600">Copied</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3.5 h-3.5 text-[#FF6B00]" />
+                    <span>Copy</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* 4. Branch */}
             <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center justify-between">
               <div>
                 <span className="text-[10px] uppercase font-bold text-slate-400 block">
-                  3. Branch
+                  4. Home Branch
                 </span>
                 <span className="font-extrabold text-xs text-slate-800">
                   {profile.branch}
                 </span>
               </div>
               <span className="text-[10px] text-slate-400 font-semibold bg-white px-2 py-1 rounded-lg border border-slate-200">
-                Sol ID: 0451
+                Chittoor, AP
               </span>
             </div>
 
-            {/* 4. Customer ID */}
+            {/* 5. Customer ID */}
             <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center justify-between">
               <div>
                 <span className="text-[10px] uppercase font-bold text-slate-400 block">
-                  4. Customer ID
+                  5. Customer ID / CIF
                 </span>
                 <span className="font-mono font-black text-sm text-[#0A2E65]">
                   {profile.customerId}
@@ -409,6 +509,145 @@ export const ScreenProfile: React.FC<ScreenProfileProps> = ({ onBack, onToast })
           </div>
         </div>
 
+        {/* CARD 4: APP SECURITY & BIOMETRIC LOGIN SETTINGS */}
+        <div className="bg-white rounded-3xl p-5 shadow-lg shadow-orange-950/5 border border-orange-100/80">
+          <div className="flex items-center justify-between pb-3.5 mb-4 border-b border-orange-100">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-orange-50 border border-orange-200/80 flex items-center justify-center text-[#FF6B00]">
+                <Fingerprint className="w-4 h-4 text-[#FF6B00]" />
+              </div>
+              <div>
+                <h3 className="font-extrabold text-sm text-[#0A2E65] leading-tight">
+                  Security & Biometric Unlock
+                </h3>
+                <p className="text-[10px] text-slate-400">
+                  Instant login via Face ID or Fingerprint
+                </p>
+              </div>
+            </div>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-[#0A2E65] border border-blue-100">
+              FIDO2 Protected
+            </span>
+          </div>
+
+          {/* Toggle Row */}
+          <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <div className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors shrink-0 ${
+                isBiometricEnabled
+                  ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
+                  : 'bg-slate-100 text-slate-400 border border-slate-200'
+              }`}>
+                {biometricType === 'face' ? (
+                  <ScanFace className="w-5 h-5" />
+                ) : (
+                  <Fingerprint className="w-5 h-5" />
+                )}
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-extrabold text-[#0A2E65]">
+                    Biometric Authentication
+                  </span>
+                  <span className={`text-[9px] font-extrabold px-1.5 py-0.2 rounded-full ${
+                    isBiometricEnabled
+                      ? 'bg-emerald-100 text-emerald-800'
+                      : 'bg-slate-200 text-slate-600'
+                  }`}>
+                    {isBiometricEnabled ? 'ACTIVE' : 'OFF'}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">
+                  Log into bob World quickly using device biometrics instead of typing MPIN.
+                </p>
+              </div>
+            </div>
+
+            {/* Interactive Switch Toggle */}
+            <button
+              type="button"
+              role="switch"
+              aria-checked={isBiometricEnabled}
+              onClick={handleToggleBiometric}
+              className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
+                isBiometricEnabled ? 'bg-[#FF6B00]' : 'bg-slate-300'
+              }`}
+            >
+              <span className="sr-only">Toggle Biometric Authentication</span>
+              <span
+                className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                  isBiometricEnabled ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          </div>
+
+          {/* Sub-options when Biometric is Enabled */}
+          {isBiometricEnabled && (
+            <div className="mt-3.5 space-y-3 pt-3 border-t border-slate-100 animate-in fade-in duration-200">
+              <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
+                Select Biometric Method
+              </span>
+
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleSelectBiometricType('both')}
+                  className={`p-2.5 rounded-xl border text-center transition-all flex flex-col items-center gap-1 cursor-pointer ${
+                    biometricType === 'both'
+                      ? 'bg-orange-50 border-[#FF6B00] text-[#FF6B00] shadow-2xs ring-1 ring-[#FF6B00]'
+                      : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  <ShieldCheck className="w-4 h-4" />
+                  <span className="text-[10px] font-bold">Both (Auto)</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleSelectBiometricType('fingerprint')}
+                  className={`p-2.5 rounded-xl border text-center transition-all flex flex-col items-center gap-1 cursor-pointer ${
+                    biometricType === 'fingerprint'
+                      ? 'bg-orange-50 border-[#FF6B00] text-[#FF6B00] shadow-2xs ring-1 ring-[#FF6B00]'
+                      : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  <Fingerprint className="w-4 h-4" />
+                  <span className="text-[10px] font-bold">Fingerprint</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleSelectBiometricType('face')}
+                  className={`p-2.5 rounded-xl border text-center transition-all flex flex-col items-center gap-1 cursor-pointer ${
+                    biometricType === 'face'
+                      ? 'bg-orange-50 border-[#FF6B00] text-[#FF6B00] shadow-2xs ring-1 ring-[#FF6B00]'
+                      : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  <ScanFace className="w-4 h-4" />
+                  <span className="text-[10px] font-bold">Face ID</span>
+                </button>
+              </div>
+
+              {/* Test Biometric Unlock Button */}
+              <button
+                type="button"
+                onClick={() => setIsTestBiometricOpen(true)}
+                className="w-full mt-2 py-2.5 px-3 rounded-xl bg-orange-50 hover:bg-orange-100 border border-orange-200 text-[#FF6B00] font-bold text-xs flex items-center justify-center gap-2 active:scale-98 transition-all cursor-pointer"
+              >
+                <Fingerprint className="w-4 h-4" />
+                <span>Test Biometric Sensor</span>
+              </button>
+            </div>
+          )}
+
+          <div className="mt-3 flex items-center gap-2 text-[10px] text-slate-400 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+            <Lock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+            <span>Biometric keys are stored locally in device hardware secure storage (localStorage: bob_biometric_enabled).</span>
+          </div>
+        </div>
+
         {/* BOTTOM ACTION BUTTONS: Share PDF + Back to Dashboard */}
         <div className="grid grid-cols-2 gap-3 pt-2">
           {/* Share as PDF Button */}
@@ -429,6 +668,15 @@ export const ScreenProfile: React.FC<ScreenProfileProps> = ({ onBack, onToast })
             <span>Back to Dashboard</span>
           </button>
         </div>
+
+        {/* LOG OUT BUTTON */}
+        <button
+          onClick={onLogout}
+          className="w-full py-3.5 px-4 rounded-2xl bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 font-extrabold text-xs flex items-center justify-center gap-2 shadow-xs active:scale-95 transition-all cursor-pointer"
+        >
+          <LogOut className="w-4 h-4 text-red-600" />
+          <span>Log Out & Lock Session</span>
+        </button>
       </div>
 
       {/* MODAL 2: SHARE DETAILS AS PDF CARD MODAL */}
@@ -532,8 +780,7 @@ export const ScreenProfile: React.FC<ScreenProfileProps> = ({ onBack, onToast })
                 <button
                   type="button"
                   onClick={() => {
-                    alert(`Account Details PDF generated for ${profile.name} (A/C: ${profile.accountNumber}). Downloading...`);
-                    onToast('PDF Account Slip downloaded successfully!', 'success');
+                    onToast(`PDF Account Slip downloaded successfully for ${profile.name}!`, 'success');
                     setIsShareModalOpen(false);
                   }}
                   className="py-2.5 px-3 rounded-xl bg-[#0A2E65] hover:bg-[#071f45] text-white font-bold flex items-center justify-center gap-1.5 shadow-md shadow-blue-950/20"
@@ -546,6 +793,18 @@ export const ScreenProfile: React.FC<ScreenProfileProps> = ({ onBack, onToast })
           </div>
         </div>
       )}
+
+      {/* TEST BIOMETRIC MODAL */}
+      <BiometricAuthModal
+        isOpen={isTestBiometricOpen}
+        onClose={() => setIsTestBiometricOpen(false)}
+        onSuccess={() => {
+          setIsTestBiometricOpen(false);
+          onToast('Biometric sensor test passed! Your device is ready.', 'success');
+        }}
+        biometricType={biometricType}
+        title="Test Device Biometrics"
+      />
     </div>
   );
 };

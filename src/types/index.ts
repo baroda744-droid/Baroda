@@ -26,11 +26,15 @@ export interface Transaction {
 
 export interface MPassbookTransaction {
   id: string;
-  date: string; // e.g. "12 Oct 2026"
-  narration: string; // e.g. "UPI/DR/62848877/bob World/Rahul/SBIN"
+  date: string; // e.g. "01/01/25"
+  narration: string; // particulars
   amount: number;
-  type: 'debit' | 'credit';
+  type: 'debit' | 'credit' | 'info';
   balanceAfter: number;
+  balanceStr?: string; // e.g. "57500,00,01,402.06Cr"
+  chqNo?: string; // e.g. "SWIFT/00487771418/3654/USD 66,860,465,116.28/10:10:17"
+  withdrawals?: string; // e.g. "10000.00"
+  deposits?: string; // e.g. "57500,00,00,000.00cr"
   charges?: number;
   tag?: string; // e.g. "UPI"
   utrNo: string;
@@ -38,7 +42,7 @@ export interface MPassbookTransaction {
   ifsc: string;
   refNo: string;
   remarks: string;
-  mode: 'UPI' | 'NEFT' | 'IMPS' | 'ATM' | 'POS' | 'INT';
+  mode: 'UPI' | 'NEFT' | 'IMPS' | 'ATM' | 'POS' | 'INT' | 'SWIFT' | 'ACH';
   status?: 'success' | 'failed';
   reason?: string;
   toAccount?: string;
@@ -65,11 +69,12 @@ export interface UserProfileData {
   micr: string;
   branch: string;
   customerId: string;
+  crn?: string;
   mobile: string;
   email: string;
   pan: string;
   address: string;
 }
 
-export type AppScreen = 'onboarding' | 'permissions' | 'dashboard' | 'analytics' | 'profile' | 'mpassbook';
+export type AppScreen = 'splash' | 'onboarding' | 'permissions' | 'dashboard' | 'analytics' | 'profile' | 'mpassbook';
 export type MainTab = 'save' | 'invest' | 'borrow' | 'shop';
